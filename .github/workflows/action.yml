@@ -1,0 +1,15 @@
+name: 'GitHub Actions Science Online Bot'
+
+on:
+  push:
+  schedule:
+    - cron: '* * * * *'
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout codes'
+        uses: actions/checkout@v1
+      - name: 'Pull Repo'
+        run: bash ./startup.sh
