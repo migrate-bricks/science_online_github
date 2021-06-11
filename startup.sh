@@ -46,7 +46,7 @@ if [ -d $git_dir ]; then rm -Rf $git_dir; fi
 cd $dev_dir
 git init
 git config user.name "deployment bot"
-git config user.email "deploy@travis-ci.org"
+git config user.email "deploy@github.com"
 git add .
 git commit -m "deploy node"
 git config --global --unset http.proxy
