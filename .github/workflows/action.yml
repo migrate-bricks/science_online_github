@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: 'Checkout codes'
         uses: actions/checkout@v1
-      - name: 'Pull Repo'
+      - name: 'Pull and push repo'
         run: bash ./startup.sh
         env: 
           GH_TOKEN: ${{ secrets.GH_ACTION_TOKEN }}
