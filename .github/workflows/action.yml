@@ -14,4 +14,4 @@ jobs:
       - name: 'Pull Repo'
         run: bash ./startup.sh
         env: 
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_ACTION_TOKEN }}
