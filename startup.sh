@@ -45,6 +45,6 @@ git add .
 git commit -m "deploy node"
 git config --global --unset http.proxy
 git config --global --unset https.proxy
-git push --force --quiet "https://${{ secrets.GITHUB_TOKEN }}@github.com/LinRaise/science_online_github.git" master:master
+git push --force --quiet "https://${{ secrets.GITHUB_TOKEN }}@github.com/LinRaise/science_online_github.git" master:dev
     
 echo "Transform complete!"
