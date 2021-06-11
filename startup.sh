@@ -40,11 +40,11 @@ done
 if [ -d $git_dir ]; then rm -Rf $git_dir; fi
 
 git config user.name "deployment bot"
-git config user.email "deploy@travis-ci.org"
+git config user.email "deploy@github.org"
 git add .
 git commit -m "deploy node"
 git config --global --unset http.proxy
 git config --global --unset https.proxy
-git push --force --quiet "https://${GH_TOKEN}@github.com/LinRaise/science_online_github.git" master:master
+git push --force --quiet "https://${{ secrets.GITHUB_TOKEN }}@github.com/LinRaise/science_online_github.git" master:master
     
 echo "Transform complete!"
