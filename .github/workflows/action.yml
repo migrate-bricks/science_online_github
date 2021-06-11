@@ -3,7 +3,7 @@ name: 'GitHub Actions Science Online Bot'
 on:
   push:
   schedule:
-    - cron: '* * * * *'
+    - cron: '* */2 * * *'
 
 jobs:
   bot:
