@@ -52,5 +52,6 @@ git commit -m "deploy node"
 git config --global --unset http.proxy
 git config --global --unset https.proxy
 git push --force --quiet "https://${GH_TOKEN}@github.com/LinRaise/science_online_github.git" master:dev
-    
+git push --force --quiet "https://oauth2:${GITEE_TOKEN_CLASH}@gitee.com/LinRaise/science_online_gitee.git" master:master
+
 echo "Transform complete!"

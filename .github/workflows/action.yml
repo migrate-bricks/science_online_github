@@ -15,3 +15,4 @@ jobs:
         run: bash ./startup.sh
         env: 
           GH_TOKEN: ${{ secrets.GH_ACTION_TOKEN }}
+          GITEE_TOKEN_CLASH: ${{ secrets.GITEE_TOKEN_CLASH }}
