@@ -10,9 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 'Checkout codes'
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
       - name: 'Pull and push repo'
         run: bash ./startup.sh
         env: 
-          GH_TOKEN: ${{ secrets.GH_ACTION_TOKEN }}
-          GITEE_TOKEN_CLASH: ${{ secrets.GITEE_TOKEN_CLASH }}
+          API_GITHUB_TOKEN: ${{ secrets.API_GITHUB_TOKEN }}
