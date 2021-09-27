@@ -23,6 +23,7 @@ do
 	if [[ -f "$filepath" ]]
 	then
 		echo "This file exists on your filesystem."
+		echo 'latest yml' > $dev_dir/$long_date
 		cp $filepath $dev_dir/free_node.yml
 		break
 	fi
@@ -35,6 +36,7 @@ do
 	if [[ -f "$filepath" ]]
 	then
 		echo "This file exists on your filesystem."
+		echo 'latest yml' > $dev_dir/$short_date
 		cp $filepath $dev_dir/free_node.yml
 		break
 	fi
