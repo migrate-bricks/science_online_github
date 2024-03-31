@@ -35,20 +35,16 @@ formatter = colorlog.ColoredFormatter(
         'CRITICAL': 'red,bg_white',
     }
 )
+
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
-d = u2.connect("SNU0220A15007866")
-dinfo = d.info
-d_displayHeight = dinfo['displayHeight']
-d_displayWidth = dinfo['displayWidth']
+d = u2.connect("AUE66HL7XWIVJRSS")
 
 package_name = "com.taobao.idlefish"
 activity_name = ".maincontainer.activity.MainActivity"
 
-
 class TimeUtil:
-
     @staticmethod
     def random_sleep(random_start=2, random_end=5):
         wait_time = random.randint(random_start, random_end)
@@ -68,7 +64,6 @@ class TimeUtil:
         tomorrow = today + timedelta(days=1)
         return tomorrow.strftime('%Y-%m-%d')
 
-
 def get_desktop_path():
     if sys.platform == 'win32':
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
@@ -77,7 +72,6 @@ def get_desktop_path():
     else:
         desktop_path = None
     return desktop_path
-
 
 def excel_cell_to_index(cell_str):
     """
@@ -90,7 +84,6 @@ def excel_cell_to_index(cell_str):
     column = ord(letter.upper()) - ord('A') + 1
     row = number
     return row, column
-
 
 def write_img_by_cell(work_book, sheet_name, cell_str, img_path, target_file):
     """
@@ -112,7 +105,6 @@ def write_img_by_cell(work_book, sheet_name, cell_str, img_path, target_file):
     sheet.add_image(img)
     work_book.save(target_file)
 
-
 def to_excel(data_list):
     dt = TimeUtil.curr_date()
     write_path = os.getcwd()
@@ -133,27 +125,15 @@ def to_excel(data_list):
         write_img_by_cell(work_book=wb, sheet_name=sheet_name, cell_str='C' + str(index + start_row),
                           img_path=data['img'],
                           target_file=output_file)
-
     wb.save(filename=output_file)
     return output_file
 
-
-def swipe(startx, starty, endx, endy):
-    d.swipe(startx, starty, endx, endy)
-
-
 def swipe_up():
-    fx = random.randint(200, 600)
-    fy = random.randint(d_displayHeight - 500, d_displayHeight - 400)
-    tx = random.randint(500, 700)
-    ty = random.randint(d_displayHeight - 1200, d_displayHeight - 1000)
-    swipe(startx=fx, starty=fy, endx=tx, endy=ty)
-
+    d.swipe_ext('up', 0.9)
 
 def del_temp_file():
     if os.path.exists('images'):
         shutil.rmtree('images')
-
 
 def open_page_by_keyword(keyword):
     TimeUtil.random_sleep()
@@ -161,11 +141,9 @@ def open_page_by_keyword(keyword):
     d.send_keys(keyword, clear=True)
     d.press('enter')
 
-
 def generate_random_string(length):
     letters_and_digits = string.ascii_letters + string.digits
     return ''.join(random.choice(letters_and_digits) for i in range(length))
-
 
 def get_amount(s):
     match = re.search(r'¥(\d+)', s)
@@ -173,14 +151,12 @@ def get_amount(s):
         amount = match.group(1)
         return amount
 
-
 def save_image(pil_image):
     if not os.path.exists('images'):
         os.makedirs('images')
     img_path = os.path.join('images', generate_random_string(10) + str(int(time.time())) + ".png")
     pil_image.save(img_path)
     return img_path
-
 
 def remove_unicode(text):
     special_sequences = '\\xef\\xbf\\xbc'
@@ -191,47 +167,28 @@ def remove_unicode(text):
             result_str += ch
     return result_str
 
-
 def get_list_data():
     result = []
     TimeUtil.random_sleep()
-    # view_list = d.xpath(
-    #     '//android.widget.ScrollView/android.view.View[2]/android.view.View[1]/android.widget.ImageView[1]/android.view.View[1]/android.view.View[1]/*').all()
-    view_list = d.xpath(
-        '//android.widget.ScrollView//android.view.View').all()
+    view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
     if len(view_list) > 0:
+        index = 0
         for el in view_list:
-            item_info = el.info
-            el_description = remove_unicode(str(item_info['contentDescription']))
-            el_text = str(item_info['text']).replace('\n', '')
-            if el_description != "" and el_description != "筛选":
+            if len(el.elem.getchildren()) > 0:
+                el_description = remove_unicode(str(el.attrib['content-desc']))
+                for child in el.elem.getchildren():
+                    el_description = f"{el_description},{remove_unicode(str(child.attrib['content-desc']))}" #combine el_description
+                print(f"{index} - {el_description}")
                 amount = get_amount(el_description)
                 if amount is not None and amount != '':
                     img_path = save_image(el.screenshot())
                     result.append({
-                        'title': el_description,
-                        'amount': amount,
-                        'img': img_path
-                    })
-
+                         'title': el_description,
+                         'amount': amount,
+                         'img': img_path
+                     })
+            index += 1
     return result
-
-
-def usage():
-    message = """
-    ######################################################################################################################
-                                                   免责声明                                                               
-    此工具仅限于学习研究，用户需自己承担因使用此工具而导致的所有法律和相关责任！作者不承担任何法律责任！                 
-    ######################################################################################################################
-    """
-    logger.error(textwrap.dedent(message))
-    while True:
-        user_input = input("如果您同意本协议, 请输入Y继续: (y/n) ")
-        if user_input.lower() == "y":
-            break
-        elif user_input.lower() == "n":
-            sys.exit(0)
-
 
 def main_exit():
     d.set_fastinput_ime(False)
@@ -239,7 +196,6 @@ def main_exit():
 
 
 def main(keyword, max_page):
-    usage()
     try:
         del_temp_file()
         logger.info(d.info)
@@ -262,10 +218,11 @@ def main(keyword, max_page):
         print(e)
         logger.error("程序运行异常:" + str(e.args[0]))
     finally:
-        main_exit()
+        print("执行结束!")
+        # main_exit()
 
 
 if __name__ == '__main__':
-    keyword = '餐饮券'
+    keyword = 'J老师精听精讲'
     max_page = 5  # 向上滑动次数
     main(keyword=keyword, max_page=max_page)
