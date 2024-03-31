@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+from operator import itemgetter
 import os
 import pathlib
 import random
@@ -8,7 +9,6 @@ import re
 import shutil
 import string
 import sys
-import textwrap
 import time
 from datetime import datetime, date, timedelta
 
@@ -85,51 +85,29 @@ def excel_cell_to_index(cell_str):
     row = number
     return row, column
 
-def write_img_by_cell(work_book, sheet_name, cell_str, img_path, target_file):
-    """
-    向Excel某单元格写入图片
-    :param work_book: work_book
-    :param sheet_name: sheet页名称
-    :param cell_str: 单元格名称，例A1，B2，C3
-    :param img_path: 图片全路径
-    :return:
-    """
-    sheet = work_book[sheet_name]
-    row, column = excel_cell_to_index(cell_str)
-    row = row - 1
-    column = column - 1
-    img = Image(img_path)
-    _from = AnchorMarker(column, 40000, row, 40000)
-    to = AnchorMarker(column + 1, -40000, row + 1, -40000)
-    img.anchor = TwoCellAnchor('twoCell', _from, to)
-    sheet.add_image(img)
-    work_book.save(target_file)
-
-def to_excel(data_list):
+def to_excel(data_list, keyword):
     dt = TimeUtil.curr_date()
     write_path = os.getcwd()
     if not os.path.exists(write_path):
         os.makedirs(write_path)
-    output_file = os.path.join(write_path, f"{dt}结果.xlsx")
     wb = Workbook()
     sheet = wb.active
     sheet_name = 'Sheet1'
     sheet.title = sheet_name
     sheet['A1'] = '标题'
     sheet['B1'] = '价格'
-    sheet['C1'] = '图片'
     start_row = 2
-    for index, data in enumerate(data_list):
+    sorted_data_list = sorted(data_list, key=itemgetter('amount'))
+    mindata = min(data_list, key=itemgetter('amount'))
+    output_file = os.path.join(write_path, f"{dt}-{keyword}-{mindata['amount']}.xlsx")
+    for index, data in enumerate(sorted_data_list):
         sheet["A" + str(index + start_row)] = data['title']
         sheet["B" + str(index + start_row)] = data['amount']
-        write_img_by_cell(work_book=wb, sheet_name=sheet_name, cell_str='C' + str(index + start_row),
-                          img_path=data['img'],
-                          target_file=output_file)
     wb.save(filename=output_file)
     return output_file
 
 def swipe_up():
-    d.swipe_ext('up', 0.9)
+    d.swipe_ext('up', 1)
 
 def del_temp_file():
     if os.path.exists('images'):
@@ -146,28 +124,15 @@ def generate_random_string(length):
     return ''.join(random.choice(letters_and_digits) for i in range(length))
 
 def get_amount(s):
-    match = re.search(r'¥(\d+)', s)
+    match = re.search(r'¥(\d+\.?\d*)', s)
     if match:
         amount = match.group(1)
-        return amount
-
-def save_image(pil_image):
-    if not os.path.exists('images'):
-        os.makedirs('images')
-    img_path = os.path.join('images', generate_random_string(10) + str(int(time.time())) + ".png")
-    pil_image.save(img_path)
-    return img_path
+        return float(amount)
 
 def remove_unicode(text):
-    special_sequences = '\\xef\\xbf\\xbc'
-    text = text.replace('\n', '')
-    result_str = ''
-    for ch in text:
-        if special_sequences not in str(ch.encode()):
-            result_str += ch
-    return result_str
+    return text.replace('\n', '')
 
-def get_list_data():
+def get_list_data(must_include_word):
     result = []
     TimeUtil.random_sleep()
     view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
@@ -179,13 +144,12 @@ def get_list_data():
                 for child in el.elem.getchildren():
                     el_description = f"{el_description},{remove_unicode(str(child.attrib['content-desc']))}" #combine el_description
                 print(f"{index} - {el_description}")
-                amount = get_amount(el_description)
-                if amount is not None and amount != '':
-                    img_path = save_image(el.screenshot())
-                    result.append({
-                         'title': el_description,
-                         'amount': amount,
-                         'img': img_path
+                if must_include_word in el_description:
+                    amount = get_amount(el_description)
+                    if amount is not None and amount != '':
+                        result.append({
+                            'title': el_description,
+                            'amount': amount,
                      })
             index += 1
     return result
@@ -194,8 +158,7 @@ def main_exit():
     d.set_fastinput_ime(False)
     d.app_stop(package_name)
 
-
-def main(keyword, max_page):
+def execute(keyword, must_include_word, max_scroll_page):
     try:
         del_temp_file()
         logger.info(d.info)
@@ -205,14 +168,14 @@ def main(keyword, max_page):
 
         logger.info(f"正在获取【{keyword}】关键字信息...")
         open_page_by_keyword(keyword)
-        for i in range(max_page):
-            logger.info(f"正在滑动[{i}/{max_page}]...")
-            list_data = get_list_data()
+        for i in range(max_scroll_page):
+            logger.info(f"正在滑动[{i}/{max_scroll_page}]...")
+            list_data = get_list_data(must_include_word)
             if list_data:
                 outputs.extend(list_data)
             swipe_up()
 
-        output_file = to_excel(outputs)
+        output_file = to_excel(outputs, keyword)
         logger.info(f"运行完成，文件路径{output_file}")
     except Exception as e:
         print(e)
@@ -221,8 +184,8 @@ def main(keyword, max_page):
         print("执行结束!")
         # main_exit()
 
-
 if __name__ == '__main__':
     keyword = 'J老师精听精讲'
-    max_page = 5  # 向上滑动次数
-    main(keyword=keyword, max_page=max_page)
+    must_include_word = 'J老师'
+    max_scroll_page = 5  # 向上滑动次数
+    execute(keyword=keyword, must_include_word=must_include_word, max_scroll_page=max_scroll_page)
