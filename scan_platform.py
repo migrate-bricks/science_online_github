@@ -131,7 +131,7 @@ def get_wanted(s):
     return 0
 
 def clean_text(text):
-    return text.replace('\n', '@')
+    return text.replace('\n', '')
 
 def main_complete():
     d.set_fastinput_ime(False)
@@ -172,7 +172,7 @@ def execute_scan_all(keyword, must_include_word, max_scroll_page):
         print("Execution Completed!")
 
 if __name__ == '__main__':
-    keyword = 'tanner老师'
+    keyword = 'J老师'
     must_include_word = 'J老师'
     max_scroll_page = 100
     execute_scan_all(keyword=keyword, must_include_word=must_include_word, max_scroll_page=max_scroll_page)
