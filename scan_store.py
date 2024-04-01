@@ -160,7 +160,7 @@ def execute_scan_all(store_name, must_include_word, max_scroll_page):
         print("Execution Completed!")
 
 if __name__ == '__main__':
-    store_name = 'linraise'
+    store_name = input("需要扫描的闲鱼店铺名称: ")
     must_include_word = '商品'
     max_scroll_page = 100
     execute_scan_all(store_name=store_name, must_include_word=must_include_word, max_scroll_page=max_scroll_page)
