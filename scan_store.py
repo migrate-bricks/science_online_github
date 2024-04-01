@@ -160,7 +160,8 @@ def execute_scan_all(store_name, must_include_word, max_scroll_page):
         print("Execution Completed!")
 
 if __name__ == '__main__':
-    store_name = input("需要扫描的闲鱼店铺名称: ")
+    logger.info('Please make sure you are on the 【HOME-PAGE】 of the store!!')
+    store_name = input('Please input the store name:')
     must_include_word = '商品'
     max_scroll_page = 100
     execute_scan_all(store_name=store_name, must_include_word=must_include_word, max_scroll_page=max_scroll_page)
