@@ -101,26 +101,26 @@ def to_excel(data_list, keyword):
     output_file = os.path.join(write_path, f"{dt}-{keyword}.xlsx")
     for index, data in enumerate(sorted_data_list):
         sheet["A" + str(index + start_row)] = data['title']
-        sheet["B" + str(index + start_row)] = data['amount']
+        sheet["B" + str(index + start_row)] = data['price']
         sheet["C" + str(index + start_row)] = data['wanted']
-        sheet["D" + str(index + start_row)] = data['amount'] * data['wanted']
+        sheet["D" + str(index + start_row)] = data['price'] * data['wanted']
     wb.save(filename=output_file)
     return output_file
 
 def swipe_up():
     d.swipe_ext('up', 0.9)
 
-def get_amount(s):
+def get_price(s):
     match = re.search(r'商品价格(\d+\.?\d*)', s)
     if match:
-        amount = match.group(1)
-        return float(amount)
+        price = match.group(1)
+        return float(price)
 
 def get_wanted(s):
     match = re.search(r'(\d+\.?\d*)人想要', s)
     if match:
-        amount = match.group(1)
-        return float(amount)
+        price = match.group(1)
+        return float(price)
     return 0
 
 def clean_text(text):
@@ -142,11 +142,11 @@ def execute_scan_all(store_name, must_include_word, max_scroll_page):
                 for el in view_list:
                     el_description = clean_text(str(el.attrib['content-desc']))
                     if must_include_word in el_description:
-                        amount = get_amount(el_description)
+                        price = get_price(el_description)
                         wanted = get_wanted(el_description)
-                        if amount is not None and amount != '' and not any(d['title'] == el_description for d in results): # skip duplicated item
-                            logger.info(f"【{len(results)+1}】-description:{el_description}, amount:{amount}, wanted:{wanted}")
-                            results.append({ 'title': el_description, 'amount': amount,'wanted': wanted})
+                        if price is not None and price != '' and not any(d['title'] == el_description for d in results): # skip duplicated item
+                            logger.info(f"【{len(results)+1}】-description:{el_description}, price:{price}, wanted:{wanted}")
+                            results.append({ 'title': el_description, 'price': price,'wanted': wanted})
             if d(descriptionContains='没有更多了').exists: # alread on the end of the page
                 break
             swipe_up()
