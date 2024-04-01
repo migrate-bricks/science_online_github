@@ -39,6 +39,7 @@ logger.addHandler(console_handler)
 d = u2.connect("AUE66HL7XWIVJRSS") #TODO: Change it based on 'adb devices'
 
 package_name = "com.taobao.idlefish"
+browser_package_name = "com.android.browser"
 activity_name = ".maincontainer.activity.MainActivity"
 
 class TimeUtil:
@@ -110,6 +111,18 @@ def to_excel(data_list, keyword):
 def swipe_up():
     d.swipe_ext('up', 0.9)
 
+def open_page_by_url(url):
+    d.app_stop(browser_package_name)
+    d.app_stop(package_name)
+    d.app_start(browser_package_name, wait=True)
+    d(resourceId="com.android.browser:id/search_hint").must_wait()
+    d(resourceId="com.android.browser:id/search_hint").click_exists()
+    d(resourceId="com.android.browser:id/url").must_wait()
+    d(resourceId="com.android.browser:id/url").set_text(url)
+    d.press('enter')
+    d(textContains='允许').wait(exists=True)
+    d(textContains='允许').click(timeout=30)
+
 def get_price(s):
     match = re.search(r'商品价格(\d+\.?\d*)', s)
     if match:
@@ -160,8 +173,10 @@ def execute_scan_all(store_name, must_include_word, max_scroll_page):
         print("Execution Completed!")
 
 if __name__ == '__main__':
-    logger.info('Please make sure you are on the 【HOME-PAGE】 of the store!!')
     store_name = input('Please input the store name:')
     must_include_word = '商品'
     max_scroll_page = 100
+    home_page = 'https://m.tb.cn/h.5yss3Ym?tk=xGiBWpYThiS'
+    home_page = 'https://m.tb.cn/h.5Bdhpbq?tk=r6P2WpQ6VmB'
+    open_page_by_url(home_page)
     execute_scan_all(store_name=store_name, must_include_word=must_include_word, max_scroll_page=max_scroll_page)

@@ -112,7 +112,7 @@ def swipe_up():
     d.swipe_ext('up', 0.9)
 
 def open_page_by_keyword(keyword):
-    TimeUtil.random_sleep()
+    d(resourceId="com.taobao.idlefish:id/title").must_wait()
     d(resourceId="com.taobao.idlefish:id/title").click()
     d.send_keys(keyword, clear=True)
     d.press('enter')
