@@ -6,8 +6,6 @@ import os
 import pathlib
 import random
 import re
-import shutil
-import string
 import sys
 import time
 from datetime import datetime, date, timedelta
@@ -15,8 +13,6 @@ from datetime import datetime, date, timedelta
 import colorlog
 import uiautomator2 as u2
 from openpyxl import Workbook
-from openpyxl.drawing.image import Image
-from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -75,7 +71,7 @@ def get_desktop_path():
 
 def excel_cell_to_index(cell_str):
     """
-    Excel单元格转换为行列索引，例如A1转换为1,1  C4转换为3,4
+    Excel cells are converted to row and column indexes, for example, A1 is converted to 1,1 and C4 is converted to 3,4
     :param cell_str:
     :return:
     """
@@ -94,8 +90,8 @@ def to_excel(data_list, keyword):
     sheet = wb.active
     sheet_name = 'Sheet1'
     sheet.title = sheet_name
-    sheet['A1'] = '标题'
-    sheet['B1'] = '价格'
+    sheet['A1'] = 'Title'
+    sheet['B1'] = 'Price'
     start_row = 2
     sorted_data_list = sorted(data_list, key=itemgetter('amount'))
     mindata = min(data_list, key=itemgetter('amount'))
@@ -109,19 +105,11 @@ def to_excel(data_list, keyword):
 def swipe_up():
     d.swipe_ext('up', 1)
 
-def del_temp_file():
-    if os.path.exists('images'):
-        shutil.rmtree('images')
-
 def open_page_by_keyword(keyword):
     TimeUtil.random_sleep()
     d(resourceId="com.taobao.idlefish:id/title").click()
     d.send_keys(keyword, clear=True)
     d.press('enter')
-
-def generate_random_string(length):
-    letters_and_digits = string.ascii_letters + string.digits
-    return ''.join(random.choice(letters_and_digits) for i in range(length))
 
 def get_amount(s):
     match = re.search(r'¥(\d+\.?\d*)', s)
@@ -133,7 +121,7 @@ def remove_unicode(text):
     return text.replace('\n', '')
 
 def get_list_data(must_include_word):
-    result = []
+    results = []
     TimeUtil.random_sleep()
     view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
     if len(view_list) > 0:
@@ -142,50 +130,45 @@ def get_list_data(must_include_word):
             if len(el.elem.getchildren()) > 0:
                 el_description = remove_unicode(str(el.attrib['content-desc']))
                 for child in el.elem.getchildren():
-                    el_description = f"{el_description},{remove_unicode(str(child.attrib['content-desc']))}" #combine el_description
-                print(f"{index} - {el_description}")
+                    el_description = f"{el_description}|{remove_unicode(str(child.attrib['content-desc']))}" #combine el_description
+                print(f"{index}-{el_description}")
                 if must_include_word in el_description:
                     amount = get_amount(el_description)
-                    if amount is not None and amount != '':
-                        result.append({
-                            'title': el_description,
-                            'amount': amount,
-                     })
+                    if amount is not None and amount != '' and not any(d['title'] == el_description for d in results): # skip duplicated item
+                        results.append({ 'title': el_description, 'amount': amount})
             index += 1
-    return result
+    return results
 
-def main_exit():
+def main_complete():
     d.set_fastinput_ime(False)
-    d.app_stop(package_name)
 
-def execute(keyword, must_include_word, max_scroll_page):
+def execute_scan_all(keyword, must_include_word, max_scroll_page):
     try:
-        del_temp_file()
         logger.info(d.info)
         d.app_stop(package_name)
         d.app_start(package_name, activity_name, wait=True)
         outputs = []
 
-        logger.info(f"正在获取【{keyword}】关键字信息...")
+        logger.info(f"Retrieving【{keyword}】keyword information...")
         open_page_by_keyword(keyword)
         for i in range(max_scroll_page):
-            logger.info(f"正在滑动[{i}/{max_scroll_page}]...")
+            logger.info(f"Scrolling to [{i}/{max_scroll_page}] page...")
             list_data = get_list_data(must_include_word)
             if list_data:
                 outputs.extend(list_data)
             swipe_up()
 
         output_file = to_excel(outputs, keyword)
-        logger.info(f"运行完成，文件路径{output_file}")
+        logger.info(f"Execution completed, file path: {output_file}")
     except Exception as e:
         print(e)
-        logger.error("程序运行异常:" + str(e.args[0]))
+        logger.error("Program runs Error:" + str(e.args[0]))
     finally:
-        print("执行结束!")
-        # main_exit()
+        main_complete()
+        print("Execution Completed!")
 
 if __name__ == '__main__':
-    keyword = 'J老师精听精讲'
+    keyword = 'tanner老师'
     must_include_word = 'J老师'
-    max_scroll_page = 5  # 向上滑动次数
-    execute(keyword=keyword, must_include_word=must_include_word, max_scroll_page=max_scroll_page)
+    max_scroll_page = 100
+    execute_scan_all(keyword=keyword, must_include_word=must_include_word, max_scroll_page=max_scroll_page)
