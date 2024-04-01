@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # before using this script, please refer to d = u2.connect("AUE66HL7XWIVJRSS") Change it based on 'adb devices'
 
+import json
 import logging
 from operator import itemgetter
 import os
@@ -166,17 +167,25 @@ def execute_scan_all(store_name, must_include_word, max_scroll_page):
         output_file = to_excel(results, store_name)
         logger.info(f"Execution completed, file path: {output_file}")
     except Exception as e:
-        print(e)
         logger.error("Program runs Error:" + str(e.args[0]))
     finally:
         main_complete()
-        print("Execution Completed!")
+        logger.info("Execution Completed!")
 
 if __name__ == '__main__':
-    store_name = input('Please input the store name:')
-    must_include_word = '商品'
-    max_scroll_page = 100
-    home_page = 'https://m.tb.cn/h.5yss3Ym?tk=xGiBWpYThiS'
-    home_page = 'https://m.tb.cn/h.5Bdhpbq?tk=r6P2WpQ6VmB'
-    open_page_by_url(home_page)
-    execute_scan_all(store_name=store_name, must_include_word=must_include_word, max_scroll_page=max_scroll_page)
+    with open('./store_config.json','r',encoding='utf8') as fp:
+        store_config = json.load(fp)
+        
+        must_include_word = store_config['must_include_word']
+        max_scroll_page = store_config['max_scroll_page']
+        
+        print('All available stores: ')
+        for idx, store in enumerate(store_config['stores']):
+            print(f"【{idx}】, {store['store_name']}, {store['home_page']}")
+        
+        store_index = input('Please choose the store index:')
+        
+        store_name = store_config['stores'][int(store_index)]['store_name']
+        home_page = store_config['stores'][int(store_index)]['home_page']
+        open_page_by_url(home_page)
+        execute_scan_all(store_name=store_name, must_include_word=must_include_word, max_scroll_page=max_scroll_page)
