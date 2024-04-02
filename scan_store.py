@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# before using this script, please refer to d = u2.connect("AUE66HL7XWIVJRSS") Change it based on 'adb devices'
+# before using this script, please refer to d = u2.connect("AUE66HL7XWIVJRSS") Change below based on 'adb devices'
 
 import json
 import logging
@@ -37,11 +37,10 @@ formatter = colorlog.ColoredFormatter(
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
-d = u2.connect("AUE66HL7XWIVJRSS") #TODO: Change it based on 'adb devices'
-
 package_name = "com.taobao.idlefish"
 browser_package_name = "com.android.browser"
 activity_name = ".maincontainer.activity.MainActivity"
+
 
 class TimeUtil:
     @staticmethod
@@ -63,6 +62,7 @@ class TimeUtil:
         tomorrow = today + timedelta(days=1)
         return tomorrow.strftime('%Y-%m-%d')
 
+
 def get_desktop_path():
     if sys.platform == 'win32':
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
@@ -71,6 +71,7 @@ def get_desktop_path():
     else:
         desktop_path = None
     return desktop_path
+
 
 def excel_cell_to_index(cell_str):
     """
@@ -83,6 +84,7 @@ def excel_cell_to_index(cell_str):
     column = ord(letter.upper()) - ord('A') + 1
     row = number
     return row, column
+
 
 def to_excel(data_list, keyword):
     dt = TimeUtil.curr_date()
@@ -99,7 +101,8 @@ def to_excel(data_list, keyword):
     sheet['C1'] = 'Wanted'
     sheet['D1'] = 'Profit'
     start_row = 2
-    sorted_data_list = sorted(data_list, key=itemgetter('wanted'), reverse=True)
+    sorted_data_list = sorted(
+        data_list, key=itemgetter('wanted'), reverse=True)
     output_file = os.path.join(write_path, f"{dt}-{keyword}.xlsx")
     for index, data in enumerate(sorted_data_list):
         sheet["A" + str(index + start_row)] = data['title']
@@ -109,8 +112,10 @@ def to_excel(data_list, keyword):
     wb.save(filename=output_file)
     return output_file
 
+
 def swipe_up():
     d.swipe_ext('up', 0.9)
+
 
 def open_page_by_url(url):
     d.app_stop(browser_package_name)
@@ -124,11 +129,13 @@ def open_page_by_url(url):
     d(textContains='允许').wait(exists=True)
     d(textContains='允许').click(timeout=30)
 
+
 def get_price(s):
     match = re.search(r'商品价格(\d+\.?\d*)', s)
     if match:
         price = match.group(1)
         return float(price)
+
 
 def get_wanted(s):
     match = re.search(r'(\d+\.?\d*)人想要', s)
@@ -137,31 +144,38 @@ def get_wanted(s):
         return float(price)
     return 0
 
+
 def clean_text(text):
     return text.replace('\n', '@')
+
 
 def main_complete():
     d.set_fastinput_ime(False)
 
+
 def execute_scan_all(store_name, must_include_word, max_scroll_page):
     try:
         logger.info(d.info)
-        logger.info(f"Retrieving【{store_name} products information...")
+        logger.info(f"Retrieving products information for【{store_name} ...")
         results = []
         for i in range(max_scroll_page):
             logger.info(f"Scrolling to [{i}/{max_scroll_page}] page...")
             TimeUtil.random_sleep()
-            view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
+            view_list = d.xpath(
+                '//android.widget.ScrollView//android.view.View').all()
             if len(view_list) > 0:
                 for el in view_list:
                     el_description = clean_text(str(el.attrib['content-desc']))
                     if must_include_word in el_description:
                         price = get_price(el_description)
                         wanted = get_wanted(el_description)
-                        if price is not None and price != '' and not any(d['title'] == el_description for d in results): # skip duplicated item
-                            logger.info(f"【{len(results)+1}】-description:{el_description}, price:{price}, wanted:{wanted}")
-                            results.append({ 'title': el_description, 'price': price,'wanted': wanted})
-            if d(descriptionContains='没有更多了').exists: # alread on the end of the page
+                        # skip duplicated item
+                        if price is not None and price != '' and not any(d['title'] == el_description for d in results):
+                            logger.info(
+                                f"【{len(results)+1}】-description:{el_description}, price:{price}, wanted:{wanted}")
+                            results.append(
+                                {'title': el_description, 'price': price, 'wanted': wanted})
+            if d(descriptionContains='没有更多了').exists:  # alread on the end of the page
                 break
             swipe_up()
         output_file = to_excel(results, store_name)
@@ -172,20 +186,24 @@ def execute_scan_all(store_name, must_include_word, max_scroll_page):
         main_complete()
         logger.info("Execution Completed!")
 
+
 if __name__ == '__main__':
-    with open('./store_config.json','r',encoding='utf8') as fp:
+    with open('./store_config.json', 'r', encoding='utf8') as fp:
         store_config = json.load(fp)
-        
+        # TODO: Change it based on 'adb devices' "AUE66HL7XWIVJRSS"
+        d = u2.connect(store_config["android_device_addr"])
         must_include_word = store_config['must_include_word']
         max_scroll_page = store_config['max_scroll_page']
-        
-        print('All available stores: ')
+
+        print('【All available stores】:')
         for idx, store in enumerate(store_config['stores']):
             print(f"【{idx}】, {store['store_name']}, {store['home_page']}")
-        
+
         store_index = input('Please choose the store index:')
-        
+
         store_name = store_config['stores'][int(store_index)]['store_name']
         home_page = store_config['stores'][int(store_index)]['home_page']
         open_page_by_url(home_page)
-        execute_scan_all(store_name=store_name, must_include_word=must_include_word, max_scroll_page=max_scroll_page)
+        execute_scan_all(store_name=store_name,
+                         must_include_word=must_include_word,
+                         max_scroll_page=max_scroll_page)
