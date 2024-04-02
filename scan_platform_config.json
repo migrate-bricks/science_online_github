@@ -1,8 +1,5 @@
 {
     "android_device_addr": "AUE66HL7XWIVJRSS",
     "max_scroll_page": 10,
-    "searchs": [
-        {"keyword": "J老师精听精讲", "must_include_word": "J老师"},
-        {"keyword": "J老师", "must_include_word": "J老师"}
-    ]
+    "delivery_settings_path": "D:/SaltyFish/agiso-delivery-settings.xlsx"
 }
