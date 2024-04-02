@@ -176,7 +176,7 @@ def get_min_price_but_greater_than_one(results):
 
 def get_comebine_prices(results):
     prices = [str(item['price']) for item in results]
-    return ",".join(prices)
+    return ",".join(sorted(prices))
 
 
 def get_store_result_by_key(store_results, key):
@@ -321,7 +321,7 @@ if __name__ == '__main__':
                 save_excel(platform_sorted_results, get_save_path(excel_file_name))
                 logger.info(f"【{idx}】Execution completed, File path: {excel_file_name}")
 
-            save_excel(summary_results, get_save_path("platform_summary.xlsx"))
+            save_excel(summary_results, get_save_path("PLATFORM_SUMMARY.xlsx"))
             logger.info(f"【Platform Summary】 Execution completed, File path: {excel_file_name}")
         elif scan_type == '2':  # Scan platform
             print('Scan store...')
