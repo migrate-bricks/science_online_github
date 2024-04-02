@@ -101,8 +101,7 @@ def to_excel(data_list, keyword):
     sheet['C1'] = 'Wanted'
     sheet['D1'] = 'Profit'
     start_row = 2
-    sorted_data_list = sorted(
-        data_list, key=itemgetter('wanted'), reverse=True)
+    sorted_data_list = sorted(data_list, key=itemgetter('wanted'), reverse=True)
     output_file = os.path.join(write_path, f"{dt}-{keyword}.xlsx")
     for index, data in enumerate(sorted_data_list):
         sheet["A" + str(index + start_row)] = data['title']
@@ -153,7 +152,7 @@ def main_complete():
     d.set_fastinput_ime(False)
 
 
-def execute_scan_all(store_name, must_include_word, max_scroll_page):
+def execute_scan(store_name, must_include_word, max_scroll_page):
     try:
         logger.info(d.info)
         logger.info(f"Retrieving products information for【{store_name} ...")
@@ -161,37 +160,34 @@ def execute_scan_all(store_name, must_include_word, max_scroll_page):
         for i in range(max_scroll_page):
             logger.info(f"Scrolling to [{i}/{max_scroll_page}] page...")
             TimeUtil.random_sleep()
-            view_list = d.xpath(
-                '//android.widget.ScrollView//android.view.View').all()
+            view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
             if len(view_list) > 0:
                 for el in view_list:
                     el_description = clean_text(str(el.attrib['content-desc']))
-                    if must_include_word in el_description:
+                    if must_include_word.lower() in el_description.lower():
                         price = get_price(el_description)
                         wanted = get_wanted(el_description)
                         # skip duplicated item
                         if price is not None and price != '' and not any(d['title'] == el_description for d in results):
-                            logger.info(
-                                f"【{len(results)+1}】-description:{el_description}, price:{price}, wanted:{wanted}")
-                            results.append(
-                                {'title': el_description, 'price': price, 'wanted': wanted})
+                            logger.info(f"【{len(results)+1}】-description:{el_description}, price:{price}, wanted:{wanted}")
+                            results.append({'title': el_description, 'price': price, 'wanted': wanted})
             if d(descriptionContains='没有更多了').exists:  # alread on the end of the page
                 break
             swipe_up()
         output_file = to_excel(results, store_name)
         logger.info(f"Execution completed, file path: {output_file}")
     except Exception as e:
+        print(e)
         logger.error("Program runs Error:" + str(e.args[0]))
     finally:
         main_complete()
-        logger.info("Execution Completed!")
+        print("Execution Completed!")
 
 
 if __name__ == '__main__':
-    with open('./store_config.json', 'r', encoding='utf8') as fp:
+    with open('./scan_store_config.json', 'r', encoding='utf8') as fp:
         store_config = json.load(fp)
-        # TODO: Change it based on 'adb devices' "AUE66HL7XWIVJRSS"
-        d = u2.connect(store_config["android_device_addr"])
+        d = u2.connect(store_config["android_device_addr"])  # TODO: Change it based on 'adb devices' "AUE66HL7XWIVJRSS"
         must_include_word = store_config['must_include_word']
         max_scroll_page = store_config['max_scroll_page']
 
@@ -204,6 +200,4 @@ if __name__ == '__main__':
         store_name = store_config['stores'][int(store_index)]['store_name']
         home_page = store_config['stores'][int(store_index)]['home_page']
         open_page_by_url(home_page)
-        execute_scan_all(store_name=store_name,
-                         must_include_word=must_include_word,
-                         max_scroll_page=max_scroll_page)
+        execute_scan(store_name=store_name, must_include_word=must_include_word, max_scroll_page=max_scroll_page)

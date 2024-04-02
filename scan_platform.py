@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # before using this script, please refer to d = u2.connect("AUE66HL7XWIVJRSS") Change it based on 'adb devices'
 
+import json
 import logging
 from operator import itemgetter
 import os
@@ -101,10 +102,9 @@ def to_excel(data_list, keyword):
     sheet['C1'] = 'Wanted'
     sheet['D1'] = 'Profit'
     start_row = 2
-    sorted_data_list = sorted(data_list, key=itemgetter('price'))
+    sorted_data_list = sorted(data_list, key=itemgetter('price'), reverse=False)
     mindata = min(data_list, key=itemgetter('price'))
-    output_file = os.path.join(
-        write_path, f"{dt}-{keyword}-{mindata['price']}.xlsx")
+    output_file = os.path.join(write_path, f"{dt}-{keyword}-{mindata['price']}.xlsx")
     for index, data in enumerate(sorted_data_list):
         sheet["A" + str(index + start_row)] = data['title']
         sheet["B" + str(index + start_row)] = data['price']
@@ -148,7 +148,7 @@ def main_complete():
     d.set_fastinput_ime(False)
 
 
-def execute_scan_all(keyword, must_include_word, max_scroll_page):
+def execute_scan(keyword, must_include_word, max_scroll_page):
     try:
         logger.info(d.info)
         d.app_start(package_name, activity_name, wait=True)
@@ -158,25 +158,20 @@ def execute_scan_all(keyword, must_include_word, max_scroll_page):
         for i in range(max_scroll_page):
             logger.info(f"Scrolling to [{i}/{max_scroll_page}] page...")
             TimeUtil.random_sleep()
-            view_list = d.xpath(
-                '//android.widget.ScrollView//android.view.View').all()
+            view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
             if len(view_list) > 0:
                 for el in view_list:
                     if len(el.elem.getchildren()) > 0:
-                        el_description = clean_text(
-                            str(el.attrib['content-desc']))
+                        el_description = clean_text(str(el.attrib['content-desc']))
                         for child in el.elem.getchildren():
-                            el_description = f"{el_description}|{clean_text(
-                                str(child.attrib['content-desc']))}"  # combine el_description
-                        if must_include_word in el_description:
+                            el_description = f"{el_description}&{clean_text(str(child.attrib['content-desc']))}"  # combine el_description
+                        if must_include_word.lower() in el_description.lower():
                             price = get_price(el_description)
                             wanted = get_wanted(el_description)
                             # skip duplicated item
                             if price is not None and price != '' and not any(d['title'] == el_description for d in results):
-                                logger.info(
-                                    f"【{len(results)+1}】-description:{el_description}, price:{price}, wanted:{wanted}")
-                                results.append(
-                                    {'title': el_description, 'price': price, 'wanted': wanted})
+                                logger.info(f"【{len(results)+1}】-description:{el_description}, price:{price}, wanted:{wanted}")
+                                results.append({'title': el_description, 'price': price, 'wanted': wanted})
             if d(descriptionContains='到底了').exists:  # alread on the end of the page
                 break
             swipe_up()
@@ -191,8 +186,14 @@ def execute_scan_all(keyword, must_include_word, max_scroll_page):
 
 
 if __name__ == '__main__':
-    keyword = 'J老师'
-    must_include_word = 'J老师'
-    max_scroll_page = 100
-    execute_scan_all(keyword=keyword, must_include_word=must_include_word,
-                     max_scroll_page=max_scroll_page)
+    with open('./scan_platform_config.json', 'r', encoding='utf8') as fp:
+        platform_config = json.load(fp)
+
+        android_device_addr = platform_config["android_device_addr"]
+        d = u2.connect(android_device_addr)  # TODO: Change it based on 'adb devices' "AUE66HL7XWIVJRSS"
+
+        max_scroll_page = platform_config['max_scroll_page']
+        for search in platform_config['searchs']:
+            keyword = search['keyword']
+            must_include_word = search['must_include_word']
+            execute_scan(keyword=keyword, must_include_word=must_include_word, max_scroll_page=max_scroll_page)
