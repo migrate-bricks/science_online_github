@@ -1,0 +1,15 @@
+{
+    "android_device_addr": "AUE66HL7XWIVJRSS",
+    "scan_platform":{
+        "max_scroll_page": 10,
+        "delivery_settings_path": "D:/SaltyFish/agiso-delivery-settings.xlsx"
+    },
+    "scan_store":{
+        "max_scroll_page": 200,
+        "must_include_word": "商品",
+        "stores": [
+            {"store_name": "LINRAISE", "home_page": "https://m.tb.cn/h.5Bdhpbq?tk=r6P2WpQ6VmB"},
+            {"store_name": "JIAO", "home_page": "https://m.tb.cn/h.5yss3Ym?tk=xGiBWpYThiS"}
+        ]
+    }
+}

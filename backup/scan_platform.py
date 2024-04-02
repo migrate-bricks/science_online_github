@@ -3,9 +3,7 @@
 
 import json
 import logging
-from operator import itemgetter
 import os
-import pathlib
 import random
 import re
 import sys
