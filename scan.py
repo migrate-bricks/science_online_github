@@ -339,6 +339,8 @@ if __name__ == '__main__':
                 summary_result = {**delivery_setting, **main_store_result, 'min_price': min_price, 'combine_prices': combine_prices}
                 summary_results.append(summary_result)
                 logger.info(f'【Summary result】: {summary_result}')
+                if (len(summary_results) % 30 == 0):
+                    save_excel(summary_results, get_save_path(f"SUMMARY_PLATFORM_{len(summary_results)}.xlsx"))
 
             summary_excel_file_path = get_save_path("SUMMARY_PLATFORM.xlsx")
             save_excel(summary_results, summary_excel_file_path)
