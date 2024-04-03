@@ -50,19 +50,19 @@ class TimeUtil:
         return datetime.now().strftime("%Y-%m-%d")
 
 
-def read_excel(excel_path):
+def read_excel(excel_path, header_row):
     # Open the Excel file
     wb = openpyxl.load_workbook(excel_path, read_only=True, keep_vba=False, data_only=True, keep_links=False, rich_text=False)
 
     # Select the worksheet you want to read
-    sh = wb['Sheet1']
+    sh = wb.active
 
     # Get the column names
-    columns = [cell.value for cell in next(sh.iter_rows(2))]  # second row is header
+    columns = [cell.value for cell in next(sh.iter_rows(header_row))]  # second row is header
 
     # Read the data
     results = []
-    for row in sh.iter_rows(min_row=3, values_only=True):
+    for row in sh.iter_rows(min_row=header_row+1, values_only=True):
         if row[0] is None:
             break
         results.append({columns[i]: value for i, value in enumerate(row)})
@@ -198,7 +198,14 @@ def main_complete():
     d.set_fastinput_ime(False)
 
 
-def scan_platform(search_keywords, must_include_word, max_scroll_page):
+def should_scan_store(store_excel_file_path):
+    if not os.path.exists(store_excel_file_path):
+        return True
+    overwrite = input(f'Main store results are already exists, do you want to overwrite Yes(1), No(0) ? Path: {store_excel_file_path}')
+    return (overwrite == '1')
+
+
+def scan_platform(idx, search_keywords, must_include_word, max_scroll_page):
     try:
         logger.info(d.info)
         logger.info(f"Retrieving products information for 【{search_keywords}】...")
@@ -206,8 +213,8 @@ def scan_platform(search_keywords, must_include_word, max_scroll_page):
         for search_keyword in search_keywords:
             open_page_by_keyword(search_keyword)
             for i in range(max_scroll_page):
-                logger.info(f"Scrolling to [{i}/{max_scroll_page}] page...")
-                TimeUtil.random_sleep()
+                logger.info(f"Scrolling to {idx}.{search_keyword} [{i}/{max_scroll_page}] page...")
+                TimeUtil.sleep(2)
                 view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
                 if len(view_list) > 0:
                     for el in view_list:
@@ -225,8 +232,6 @@ def scan_platform(search_keywords, must_include_word, max_scroll_page):
                 if d(descriptionContains='到底了').exists:  # alread on the end of the page
                     break
                 swipe_up()
-        # output_file = to_excel(results, must_include_word)
-        # logger.info(f"Execution completed, file path: {output_file}")
         return results
     except Exception as e:
         print(e)
@@ -243,7 +248,7 @@ def scan_store(store_name, must_include_word, max_scroll_page):
         results = []
         for i in range(max_scroll_page):
             logger.info(f"Scrolling to [{i}/{max_scroll_page}] page...")
-            TimeUtil.random_sleep()
+            TimeUtil.sleep(2)
             view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
             if len(view_list) > 0:
                 for el in view_list:
@@ -257,8 +262,6 @@ def scan_store(store_name, must_include_word, max_scroll_page):
             if d(descriptionContains='没有更多了').exists:  # Alread on the end of the page
                 break
             swipe_up()
-        # output_file = to_excel(results, store_name)
-        # logger.info(f"Execution completed, file path: {output_file}")
         return results
     except Exception as e:
         print(e)
@@ -273,8 +276,9 @@ if __name__ == '__main__':
         scan_config = json.load(fp)
 
         android_device_addr = scan_config['android_device_addr']
+        delivery_settings_path = scan_config['delivery_settings_path']
+
         platform_max_scroll_page = scan_config['scan_platform']['max_scroll_page']
-        delivery_settings_path = scan_config['scan_platform']['delivery_settings_path']
 
         store_max_scroll_page = scan_config['scan_store']['max_scroll_page']
         store_must_include_word = scan_config['scan_store']['must_include_word']
@@ -288,22 +292,35 @@ if __name__ == '__main__':
 
         scan_type = input('Scan: 1.platform or 2.store, press Enter will scan 1.platform by default? ')
         if scan_type == '1' or scan_type == '':  # Scan platform
-            print('【Scan platform start, and load main store firstly for getting current price】')
-            open_page_by_url(main_store_homepage)
-            # Main store results
-            main_store_results = scan_store(store_name=main_store_name, must_include_word=store_must_include_word, max_scroll_page=store_max_scroll_page)
-            main_store_sorted_results = sorted(main_store_results, key=lambda x: x['wanted'])
-            main_store_excel_file_name = f"{main_store_name}.xlsx"
-            save_excel(main_store_sorted_results, get_save_path(main_store_excel_file_name))
+            print('【Scan platform start, and load main store firstly for getting current price】...')
+            # Retrieve Main store results
+            main_store_excel_file_path = get_save_path(f"STORE_{main_store_name}.xlsx")
+            if should_scan_store(main_store_excel_file_path):
+                print('【Navigate to Main store homepage...】')
+                open_page_by_url(main_store_homepage)
+                print('【Scan Main store home page...')
+                main_store_results = scan_store(store_name=main_store_name, must_include_word=store_must_include_word, max_scroll_page=store_max_scroll_page)
+                main_store_sorted_results = sorted(main_store_results, key=lambda x: x['wanted'], reverse=True)
+                print(f'Save Main store results, path: {main_store_excel_file_path}...')
+                save_excel(main_store_sorted_results, main_store_excel_file_path)
+            else:
+                print(f'【Read Main store results from existing path: {main_store_excel_file_path}')
+                main_store_results = read_excel(main_store_excel_file_path, header_row=1)
+
+            print(f'【Read Global delivery settings from path: {delivery_settings_path}】')
+            delivery_settings = read_excel(delivery_settings_path, header_row=2)  # Header:*配置名称|*外部编码|*附言（具体的发货内容填写在这里）|商品分类（选填）|自动发货开关（不填默认开启）|配置名称是否等于外部编码|附言是否包含外部编码|search_keywords|must_include_word|
 
             summary_results = []
-            delivery_settings = read_excel(delivery_settings_path)  # Header:*配置名称|*外部编码|*附言（具体的发货内容填写在这里）|商品分类（选填）|自动发货开关（不填默认开启）|配置名称是否等于外部编码|附言是否包含外部编码|search_keywords|must_include_word|
             for idx, delivery_setting in enumerate(delivery_settings):  # Excel settings is delivery_setting
                 setting_search_keywords = delivery_setting['search_keywords'].split(',')
                 setting_must_include_word = delivery_setting['must_include_word']
-                platform_results = scan_platform(search_keywords=setting_search_keywords,
+
+                print(f'【Scan Platform by keyword: {setting_search_keywords}, include: {setting_must_include_word} ...')
+                platform_results = scan_platform(idx=idx,
+                                                 search_keywords=setting_search_keywords,
                                                  must_include_word=setting_must_include_word,
                                                  max_scroll_page=platform_max_scroll_page)
+
                 platform_sorted_results = sorted(platform_results, key=lambda x: x['price'])
                 min_price = get_min_price_but_greater_than_one(platform_results)
                 combine_prices = get_comebine_prices(platform_results)
@@ -313,16 +330,19 @@ if __name__ == '__main__':
                 if main_store_result is not None:
                     current_price = main_store_result.get('price')
 
+                platform_excel_file_name = f"PLATFORM_{setting_must_include_word}_price-{current_price}_min-{min_price}.xlsx"
+                platform_excel_file_path = get_save_path(platform_excel_file_name)
+                print(f'【{idx}.Save Platform results include: {setting_must_include_word} path: {platform_excel_file_path}...')
+                save_excel(platform_sorted_results, platform_excel_file_path)
+                logger.info(f"【{idx}.Save Platform results completed, File path: {platform_excel_file_path}")
+
                 summary_result = {**delivery_setting, **main_store_result, 'min_price': min_price, 'combine_prices': combine_prices}
                 summary_results.append(summary_result)
-                logger.info(f'【Target result】: {summary_result}')
+                logger.info(f'【Summary result】: {summary_result}')
 
-                excel_file_name = f"{setting_must_include_word}_current_{current_price}-min_{min_price}.xlsx"
-                save_excel(platform_sorted_results, get_save_path(excel_file_name))
-                logger.info(f"【{idx}】Execution completed, File path: {excel_file_name}")
-
-            save_excel(summary_results, get_save_path("PLATFORM_SUMMARY.xlsx"))
-            logger.info(f"【Platform Summary】 Execution completed, File path: {excel_file_name}")
+            summary_excel_file_path = get_save_path("SUMMARY_PLATFORM.xlsx")
+            save_excel(summary_results, summary_excel_file_path)
+            logger.info(f"【Platform Summary】 Execution completed, File path: {summary_excel_file_path}")
         elif scan_type == '2':  # Scan platform
             print('Scan store...')
 
@@ -333,7 +353,7 @@ if __name__ == '__main__':
     #     max_scroll_page = platform_config['max_scroll_page']
     #     delivery_settings_path = platform_config['delivery_settings_path']
     #     # searchs = read_delivery_settings(delivery_settings_path)
-    #     delivery_settings = read_excel(delivery_settings_path)
+    #     delivery_settings = read_excel(delivery_settings_path, 2)
 
     #     d = u2.connect(android_device_addr)  # TODO: Change it based on 'adb devices' "AUE66HL7XWIVJRSS"
 
