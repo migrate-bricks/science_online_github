@@ -1,6 +1,7 @@
 {
     "android_device_addr": "AUE66HL7XWIVJRSS",
     "delivery_settings_path": "D:/SaltyFish/agiso-delivery-settings.xlsx",
+    "scroll_page_timeout_second": 3,
     "scan_platform":{
         "max_scroll_page": 10
     },

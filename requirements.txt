@@ -30,3 +30,4 @@ weditor==0.7.2
 whichcraft==0.6.1
 wrapt==1.16.0
 xmltodict==0.13.0
+pandas==2.2.1
