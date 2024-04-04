@@ -230,7 +230,7 @@ def scan_platform(idx: int, search_keywords: str, must_include_word: str, max_sc
         for search_keyword in search_keywords:
             open_page_by_keyword(search_keyword)
             for i in range(max_scroll_page):
-                logger.info(f"Scrolling to {idx}.{search_keyword} [{i}/{max_scroll_page}] page...")
+                logger.info(f"Scrolling to idx: {idx}, keyword: {search_keyword}, include: {must_include_word} [{i}/{max_scroll_page}] page...")
                 TimeUtil.sleep(scroll_page_timeout)
                 view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
                 if len(view_list) > 0:
@@ -263,8 +263,8 @@ def scan_store(store_name: str, must_include_word: str, max_scroll_page: int, sc
         logger.info(d.info)
         logger.info(f"Retrieving products information for【{store_name} ...")
         results = []
-        for i in range(max_scroll_page):
-            logger.info(f"Scrolling to [{i}/{max_scroll_page}] page...")
+        for idx in range(max_scroll_page):
+            logger.info(f"Scrolling to store: {store_name} [{idx}/{max_scroll_page}] page...")
             TimeUtil.sleep(scroll_page_timeout)
             view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
             if len(view_list) > 0:
@@ -291,9 +291,9 @@ def scan_store(store_name: str, must_include_word: str, max_scroll_page: int, sc
 def load_store_results(store_name: str, store_homepage: str, store_must_include_word: str, store_max_scroll_page: int, store_scroll_page_timeout: float) -> list:
     store_excel_file_path = get_save_path(f"STORE_{store_name}.xlsx")
     if should_scan_store(store_excel_file_path):
-        print(f'【Navigate to store {store_name} homepage...】')
+        print(f'【Navigate to store: {store_name}, homepage: {store_homepage} ...】')
         open_page_by_url(store_homepage)
-        print(f'【Scan store home page {store_homepage}...')
+        print(f'【Scan store: {store_name}, homepage: {store_homepage}...')
         store_results = scan_store(store_name, store_must_include_word, store_max_scroll_page, store_scroll_page_timeout)
         store_sorted_results = sorted(store_results, key=lambda x: x['wanted'], reverse=True)
         print(f'【Save store {store_name} results, path: {store_excel_file_path}...')
@@ -332,7 +332,7 @@ if __name__ == '__main__':
         main_store_name = stores[0]['store_name']
         main_store_homepage = stores[0]['home_page']
 
-        d = u2.connect(android_device_addr)  # TODO: Change it based on 'adb devices'
+        d = u2.connect(android_device_addr)  # Change it based on 'adb devices'
         d.screen_on()
 
         scan_type = input('【Scan type? 1.platform or 2.store】: ')
@@ -362,11 +362,11 @@ if __name__ == '__main__':
                 if main_store_result is not None:
                     current_price = main_store_result.get('price')
 
-                platform_excel_file_name = f"PLATFORM_{setting_must_include_word}_price-{current_price}_min-{platform_min_price}.xlsx"
+                platform_excel_file_name = f"PLATFORM_{setting_must_include_word}_price_{current_price}_min_{platform_min_price}.xlsx"
                 platform_excel_file_path = get_save_path(platform_excel_file_name)
-                print(f'【{idx}.Save Platform results include: {setting_must_include_word} path: {platform_excel_file_path}...')
+                print(f'【{idx}_Save Platform results keywords:{setting_search_keywords}, include: {setting_must_include_word} path: {platform_excel_file_path}...')
                 save_excel(platform_sorted_results, platform_excel_file_path)
-                logger.info(f"【{idx}.Save Platform results completed, File path: {platform_excel_file_path}")
+                logger.info(f"【{idx}: Save Platform results completed, File path: {platform_excel_file_path}")
 
                 summary_result = {**delivery_setting, **main_store_result, 'min_price': platform_min_price, 'combine_prices': platform_combine_prices}
                 summary_results.append(summary_result)
