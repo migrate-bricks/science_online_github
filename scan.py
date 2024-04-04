@@ -100,8 +100,10 @@ def save_excel(data_list: list, output_file: str) -> None:
     # Write the column header and apply formatting, set the width of each column based on the length of its name
     headers = list(data_list[0].keys())
     for i, header in enumerate(headers, 1):
-        ws.cell(row=1, column=i, value=header).fill = PatternFill(start_color='00FF0000', end_color='OOFF0000', fill_type='solid')
-        ws.column_dimensions[openpyxl.utils.get_column_letter(i+1)].width = max(10, len(header))
+        cell = ws.cell(row=1, column=i, value=header)
+        cell.fill = PatternFill(start_color='00c5d9f1', end_color='00c5d9f1', fill_type='solid')
+        ws.column_dimensions[cell.column_letter].width = max(10, len(header))
+        # ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = max(10, len(header))
 
     # Write the data
     for row, row_data in enumerate(data_list, 2):
@@ -112,9 +114,10 @@ def save_excel(data_list: list, output_file: str) -> None:
     max_column = max(len(row) for row in ws.rows)
 
     # Set the autofilter for all columns
-    range_string = f"A1:{openpyxl.utils.get_column_letter(max_column)(ws.max_row)}"
+    range_string = f"A1:{openpyxl.utils.get_column_letter(max_column)}{ws.max_row}"
     ws.auto_filter.ref = range_string
-
+    # Freeze the top row
+    ws.freeze_panes = ws['A2']
     wb.save(output_file)
 
 
@@ -329,7 +332,8 @@ if __name__ == '__main__':
         main_store_name = stores[0]['store_name']
         main_store_homepage = stores[0]['home_page']
 
-        d = u2.connect(android_device_addr)  # TODO: Change it based on 'adb devices' "AUE66HL7XWIVJRSS"
+        d = u2.connect(android_device_addr)  # TODO: Change it based on 'adb devices'
+        d.screen_on()
 
         scan_type = input('【Scan type? 1.platform or 2.store】: ')
         if scan_type == '1':  # Scan platform
