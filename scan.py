@@ -15,6 +15,7 @@ import colorlog
 import openpyxl
 import openpyxl.utils
 import uiautomator2 as u2
+from uiautomator2 import Device
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
@@ -229,7 +230,7 @@ def should_scan_store(store_excel_file_path: str) -> bool:
     if not os.path.exists(store_excel_file_path):
         return True
     store_name = os.path.splitext(os.path.basename(store_excel_file_path))[0]
-    print(f'{store_name} results are already exists, path: {store_excel_file_path}')
+    print(f'-> {store_name} results are already exists, path: {store_excel_file_path}')
     overwrite = input('【Overwrite? 1.Yes, 2.No】: ')
     return (overwrite == '1')
 
@@ -237,12 +238,12 @@ def should_scan_store(store_excel_file_path: str) -> bool:
 def scan_platform(idx: int, search_keywords: str, must_include_word: str, max_scroll_page: int, scroll_page_timeout: float):
     try:
         logger.info(d.info)
-        logger.info(f"Retrieving products information for 【{search_keywords}】...")
+        logger.info(f"Retrieving products information for 【{search_keywords}】")
         results = []
         for search_keyword in search_keywords:
             open_page_by_keyword(search_keyword)
             for i in range(max_scroll_page):
-                logger.info(f"Scrolling to idx: {idx}, keyword: {search_keyword}, include: {must_include_word} [{i}/{max_scroll_page}] page...")
+                logger.info(f"Scrolling to idx: {idx}, keyword: {search_keyword}, include: {must_include_word} [{i}/{max_scroll_page}] page")
                 TimeUtil.sleep(scroll_page_timeout)
                 view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
                 if len(view_list) > 0:
@@ -273,10 +274,10 @@ def scan_platform(idx: int, search_keywords: str, must_include_word: str, max_sc
 def scan_store(store_name: str, must_include_word: str, max_scroll_page: int, scroll_page_timeout: float):
     try:
         logger.info(d.info)
-        logger.info(f"Retrieving products information for【{store_name} ...")
+        logger.info(f"【Retrieving products information for {store_name}")
         results = []
         for idx in range(max_scroll_page):
-            logger.info(f"Scrolling to store: {store_name} [{idx}/{max_scroll_page}] page...")
+            logger.info(f"【Scrolling to store: {store_name} [{idx}/{max_scroll_page}] page")
             TimeUtil.sleep(scroll_page_timeout)
             view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
             if len(view_list) > 0:
@@ -303,12 +304,12 @@ def scan_store(store_name: str, must_include_word: str, max_scroll_page: int, sc
 def load_store_results(store_name: str, store_homepage: str, store_must_include_word: str, store_max_scroll_page: int, store_scroll_page_timeout: float) -> list:
     store_excel_file_path = get_save_path(f"STORE_{store_name}.xlsx")
     if should_scan_store(store_excel_file_path):
-        print(f'【Navigate to store: {store_name}, homepage: {store_homepage} ...】')
+        print(f'【Navigate to store: {store_name}, homepage: {store_homepage}')
         open_page_by_url(store_homepage)
-        print(f'【Scan store: {store_name}, homepage: {store_homepage}...')
+        print(f'【Scan store: {store_name}, homepage: {store_homepage}')
         store_results = scan_store(store_name, store_must_include_word, store_max_scroll_page, store_scroll_page_timeout)
         store_sorted_results = sorted(store_results, key=lambda x: x['wanted'], reverse=True)
-        print(f'【Save store {store_name} results, path: {store_excel_file_path}...')
+        print(f'【Save store {store_name} results, path: {store_excel_file_path}')
         save_excel(store_sorted_results, store_excel_file_path)
     else:
         print(f'【Read store {store_name} results from existing path: {store_excel_file_path}')
@@ -333,11 +334,17 @@ if __name__ == '__main__':
         scan_config = json.load(fp)
 
         android_devices = scan_config['android_devices']
-        print('【ALL Android Devices】')
+        print('【ALL available android devices:')
         for idx, device in enumerate(android_devices, start=1):
-            print(f'*{idx}.{device['name']} {device['addr']}')
-        device_index = input('【Select Device Index?】: ')
-        android_device_addr = android_devices[int(device_index)-1]['addr']
+            print(f'-> {idx} -- {device['name']} {device['addr']}')
+        print('-> Press Enter to use the default device')
+        device_index = input('【Select device index?: ')
+        if device_index == '':
+            android_device_addr = ''
+            d = Device()
+        else:
+            android_device_addr = android_devices[int(device_index)-1]['addr']
+            d = u2.connect(android_device_addr)  # Change it based on 'adb devices'
 
         scroll_page_timeout_second = scan_config['scroll_page_timeout_second']
         delivery_settings_path = scan_config['delivery_settings_path']
@@ -352,16 +359,15 @@ if __name__ == '__main__':
         main_store_name = stores[0]['store_name']
         main_store_homepage = stores[0]['home_page']
 
-        scan_type = input('【Scan type? 1.platform or 2.store】: ')
-        d = u2.connect(android_device_addr)  # Change it based on 'adb devices'
+        scan_type = input('【Scan type? 1.Platform or 2.Store: ')
 
         if scan_type == '1':  # Scan platform
-            print('【Scan platform Start】...')
-            print(f'【Read Global delivery settings from path: {delivery_settings_path}】...')
+            print('【Scan platform Start')
+            print(f'【Read global delivery settings from path: {delivery_settings_path}')
             delivery_settings = read_excel(delivery_settings_path, header_row=2)  # Header:*配置名称|*外部编码|*附言（具体的发货内容填写在这里）|商品分类（选填）|自动发货开关（不填默认开启）|配置名称是否等于外部编码|附言是否包含外部编码|search_keywords|must_include_word|
 
             # Retrieve Main store results
-            print('【Load Main store results for getting current price】...')
+            print('【Load Main store results for getting current price')
             main_store_results = load_store_results(main_store_name, main_store_homepage, store_must_include_word, store_max_scroll_page, scroll_page_timeout_second)
 
             summary_results = []
@@ -369,7 +375,7 @@ if __name__ == '__main__':
                 setting_search_keywords = delivery_setting['search_keywords'].split(',')
                 setting_must_include_word = delivery_setting['must_include_word']  # Foreign key
 
-                print(f'【Scan Platform by keyword: {setting_search_keywords}, include: {setting_must_include_word} ...')
+                print(f'【Scan Platform by keyword: {setting_search_keywords}, include: {setting_must_include_word}')
                 platform_results = scan_platform(idx, setting_search_keywords, setting_must_include_word, platform_max_scroll_page, scroll_page_timeout_second)
 
                 platform_sorted_results = sorted(platform_results, key=lambda x: x['price'])
@@ -383,7 +389,7 @@ if __name__ == '__main__':
 
                 platform_excel_file_name = f"PLATFORM_{setting_must_include_word}_price_{current_price}_min_{platform_min_price}.xlsx"
                 platform_excel_file_path = get_save_path(platform_excel_file_name)
-                print(f'【{idx}_Save Platform results keywords:{setting_search_keywords}, include: {setting_must_include_word} path: {platform_excel_file_path}...')
+                print(f'【{idx}_Save Platform results keywords:{setting_search_keywords}, include: {setting_must_include_word} path: {platform_excel_file_path}')
                 save_excel(platform_sorted_results, platform_excel_file_path)
                 logger.info(f"【{idx}: Save Platform results completed, File path: {platform_excel_file_path}")
 
@@ -397,21 +403,21 @@ if __name__ == '__main__':
             save_excel(summary_results, summary_excel_file_path)
             logger.info(f"【Platform Summary Execution completed, File path: {summary_excel_file_path}")
         elif scan_type == '2':  # Scan Store
-            print('【Scan store Start】...')
+            print('【ALL available stores:')
             for idx, store in enumerate(stores, start=1):
-                print(f'*{idx}.{store['store_name']} {store['home_page']}')
-            store_index = input('【Select Store Index?】: ')
+                print(f'-> {idx}.{store['store_name']} {store['home_page']}')
+            store_index = input('【Select store index?: ')
             store_name = stores[int(store_index)-1]['store_name']
             store_homepage = stores[int(store_index)-1]['home_page']
 
-            print(f'【Read Global delivery settings from path: {delivery_settings_path}】')
+            print(f'【Read global delivery settings from path: {delivery_settings_path}')
             delivery_settings = read_excel(delivery_settings_path, header_row=2)  # Header:*配置名称|*外部编码|*附言（具体的发货内容填写在这里）|商品分类（选填）|自动发货开关（不填默认开启）|配置名称是否等于外部编码|附言是否包含外部编码|search_keywords|must_include_word|
 
-            print('【Load Store results】')
+            print('【Load Store results')
             store_results = load_store_results(store_name, store_homepage, store_must_include_word, store_max_scroll_page, scroll_page_timeout_second)
 
             mrege_results = full_outer_join(store_results, delivery_settings)
 
             summary_store_excel_file_path = get_save_path(f"SUMMARY_STORE_{store_name}.xlsx")
-            print(f'【Save {store_name} STORE SUMMARY results, path: {summary_store_excel_file_path}...')
+            print(f'【Save {store_name} STORE SUMMARY results, path: {summary_store_excel_file_path}')
             save_excel(mrege_results, summary_store_excel_file_path)
