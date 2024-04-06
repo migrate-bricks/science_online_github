@@ -315,6 +315,8 @@ def full_outer_join(store_results: list, delivery_settings: list):
 
 
 if __name__ == '__main__':
+    print('【Please Make sure the uiautomator2 has connected to android device and setup the `correct android_device_addr` in scan_config.json】')
+    
     with open('./scan_config.json', 'r', encoding='utf8') as fp:
         scan_config = json.load(fp)
 
@@ -331,11 +333,10 @@ if __name__ == '__main__':
         # Define first store is the main store
         main_store_name = stores[0]['store_name']
         main_store_homepage = stores[0]['home_page']
-
+        
+        scan_type = input('【Scan type? 1.platform or 2.store】: ')
         d = u2.connect(android_device_addr)  # Change it based on 'adb devices'
         d.screen_on()
-
-        scan_type = input('【Scan type? 1.platform or 2.store】: ')
         if scan_type == '1':  # Scan platform
             print('【Scan platform Start】...')
             print(f'【Read Global delivery settings from path: {delivery_settings_path}】...')
