@@ -9,6 +9,7 @@ import re
 import sys
 import time
 from datetime import datetime
+import subprocess
 
 import colorlog
 import openpyxl
@@ -142,7 +143,7 @@ def open_page_by_keyword(search_keyword: str):
     d.press('enter')
 
 
-def open_page_by_url(url: str):
+def open_page_by_url_old(url: str):  # Use browser to open store home page
     d.app_stop(browser_package_name)
     d.app_stop(package_name)
     d.app_start(browser_package_name, wait=True)
@@ -151,8 +152,19 @@ def open_page_by_url(url: str):
     d(resourceId="com.android.browser:id/url").must_wait()
     d(resourceId="com.android.browser:id/url").set_text(url)
     d.press('enter')
-    d(textContains='允许').wait(exists=True)
-    d(textContains='允许').click(timeout=30)
+    d(textContains='允许').wait(exists=True, timeout=2)
+    d(textContains='允许').click_exists()
+    d(resourceId="android.miui:id/app1").wait(exists=True, timeout=2)
+    d(resourceId="android.miui:id/app1").click_exists()
+    d.sleep(5)
+
+
+def open_page_by_url(url: str):  # Use adb shell to open store home page via app webview, performace is better
+    intent_command = f'am start -n "{package_name}/{activity_name}" -d "{url}"'
+    subprocess.run(["adb", "shell", intent_command], check=True)
+    d(resourceId="android.miui:id/app1").wait(exists=True, timeout=2)  # In case there are more than one same app installed, it will popup the window
+    d(resourceId="android.miui:id/app1").click_exists()
+    d.sleep(5)
 
 
 def get_platform_price(s: str) -> float:
@@ -218,7 +230,7 @@ def should_scan_store(store_excel_file_path: str) -> bool:
         return True
     store_name = os.path.splitext(os.path.basename(store_excel_file_path))[0]
     print(f'{store_name} results are already exists, path: {store_excel_file_path}')
-    overwrite = input('\n【Overwrite? 1.Yes, 2.No】: ')
+    overwrite = input('【Overwrite? 1.Yes, 2.No】: ')
     return (overwrite == '1')
 
 
@@ -316,11 +328,17 @@ def full_outer_join(store_results: list, delivery_settings: list):
 
 if __name__ == '__main__':
     print('Please Make sure: \n1.The uiautomator2 has connected to android device\n2.Setup the `correct android_device_addr` in scan_config.json')
-    
+
     with open('./scan_config.json', 'r', encoding='utf8') as fp:
         scan_config = json.load(fp)
 
-        android_device_addr = scan_config['android_device_addr']
+        android_devices = scan_config['android_devices']
+        print('【ALL Android Devices】')
+        for idx, device in enumerate(android_devices, start=1):
+            print(f'*{idx}.{device['name']} {device['addr']}')
+        device_index = input('【Select Device Index?】: ')
+        android_device_addr = android_devices[int(device_index)-1]['addr']
+
         scroll_page_timeout_second = scan_config['scroll_page_timeout_second']
         delivery_settings_path = scan_config['delivery_settings_path']
 
@@ -333,10 +351,10 @@ if __name__ == '__main__':
         # Define first store is the main store
         main_store_name = stores[0]['store_name']
         main_store_homepage = stores[0]['home_page']
-        
-        scan_type = input('\n【Scan type? 1.platform or 2.store】: ')
+
+        scan_type = input('【Scan type? 1.platform or 2.store】: ')
         d = u2.connect(android_device_addr)  # Change it based on 'adb devices'
-        d.screen_on()
+
         if scan_type == '1':  # Scan platform
             print('【Scan platform Start】...')
             print(f'【Read Global delivery settings from path: {delivery_settings_path}】...')
@@ -382,7 +400,7 @@ if __name__ == '__main__':
             print('【Scan store Start】...')
             for idx, store in enumerate(stores, start=1):
                 print(f'*{idx}.{store['store_name']} {store['home_page']}')
-            store_index = input('\n【Store Index?】: ')
+            store_index = input('【Select Store Index?】: ')
             store_name = stores[int(store_index)-1]['store_name']
             store_homepage = stores[int(store_index)-1]['home_page']
 
