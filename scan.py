@@ -218,7 +218,7 @@ def should_scan_store(store_excel_file_path: str) -> bool:
         return True
     store_name = os.path.splitext(os.path.basename(store_excel_file_path))[0]
     print(f'{store_name} results are already exists, path: {store_excel_file_path}')
-    overwrite = input('【Overwrite? 1.Yes, 2.No】: ')
+    overwrite = input('\n【Overwrite? 1.Yes, 2.No】: ')
     return (overwrite == '1')
 
 
@@ -315,7 +315,7 @@ def full_outer_join(store_results: list, delivery_settings: list):
 
 
 if __name__ == '__main__':
-    print('【Please Make sure the uiautomator2 has connected to android device and setup the `correct android_device_addr` in scan_config.json】')
+    print('Please Make sure: \n1.The uiautomator2 has connected to android device\n2.Setup the `correct android_device_addr` in scan_config.json')
     
     with open('./scan_config.json', 'r', encoding='utf8') as fp:
         scan_config = json.load(fp)
@@ -334,7 +334,7 @@ if __name__ == '__main__':
         main_store_name = stores[0]['store_name']
         main_store_homepage = stores[0]['home_page']
         
-        scan_type = input('【Scan type? 1.platform or 2.store】: ')
+        scan_type = input('\n【Scan type? 1.platform or 2.store】: ')
         d = u2.connect(android_device_addr)  # Change it based on 'adb devices'
         d.screen_on()
         if scan_type == '1':  # Scan platform
@@ -382,7 +382,7 @@ if __name__ == '__main__':
             print('【Scan store Start】...')
             for idx, store in enumerate(stores, start=1):
                 print(f'*{idx}.{store['store_name']} {store['home_page']}')
-            store_index = input('【Store Index?】: ')
+            store_index = input('\n【Store Index?】: ')
             store_name = stores[int(store_index)-1]['store_name']
             store_homepage = stores[int(store_index)-1]['home_page']
 
