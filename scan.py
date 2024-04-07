@@ -88,7 +88,7 @@ def append_excel(data_list: list, output_file: str) -> None:
 
 
 def save_excel(data_list: list, output_file: str) -> None:
-    if len(data_list) <= 0:
+    if data_list is None or len(data_list) <= 0:
         return False
 
     # Create file if not exist
@@ -199,12 +199,13 @@ def get_min_price_but_greater_than_one(results: list) -> float:
     for item in results:
         if 1 <= item['price'] and item['price'] < min_price:
             min_price = item['price']
-    return min_price
+    return 0
 
 
 def get_comebine_prices(results: list) -> str:
-    prices = [str(item['price']) for item in results]
-    return ",".join(sorted(prices))
+    sorted_results = sorted(results, key=lambda x: x['price'])
+    prices = [str(item['price']) for item in sorted_results]
+    return "_".join(sorted(prices))
 
 
 def get_store_result_by_key(store_results: list, key: str):
@@ -231,13 +232,12 @@ def should_scan_store(store_excel_file_path: str) -> bool:
         return True
     store_name = os.path.splitext(os.path.basename(store_excel_file_path))[0]
     print(f'-> {store_name} results are already exists, path: {store_excel_file_path}')
-    overwrite = input('【Overwrite? 1.Yes, 2.No】: ')
+    overwrite = input('【Overwrite? 1.Yes, 2.No: ')
     return (overwrite == '1')
 
 
 def scan_platform(idx: int, search_keywords: str, must_include_word: str, max_scroll_page: int, scroll_page_timeout: float):
     try:
-        logger.info(d.info)
         logger.info(f"Retrieving products information for 【{search_keywords}】")
         results = []
         for search_keyword in search_keywords:
@@ -328,7 +328,7 @@ def full_outer_join(store_results: list, delivery_settings: list):
 
 
 if __name__ == '__main__':
-    print('Please Make sure: \n1.The uiautomator2 has connected to android device\n2.Setup the `correct android_device_addr` in scan_config.json')
+    print('Please be sure: \n1.The uiautomator2 has connected to android device\n2.Setup the `correct android_device_addr` in scan_config.json\n')
 
     with open('./scan_config.json', 'r', encoding='utf8') as fp:
         scan_config = json.load(fp)
@@ -338,7 +338,7 @@ if __name__ == '__main__':
         for idx, device in enumerate(android_devices, start=1):
             print(f'-> {idx} -- {device['name']} {device['addr']}')
         print('-> Press Enter to use the default device')
-        device_index = input('【Select device index?: ')
+        device_index = input('【Select device index: ')
         if device_index == '':
             android_device_addr = ''
             d = Device()
@@ -359,7 +359,7 @@ if __name__ == '__main__':
         main_store_name = stores[0]['store_name']
         main_store_homepage = stores[0]['home_page']
 
-        scan_type = input('【Scan type? 1.Platform or 2.Store: ')
+        scan_type = input('【Select scan type 1.Platform or 2.Store: ')
 
         if scan_type == '1':  # Scan platform
             print('【Scan platform Start')
@@ -367,7 +367,7 @@ if __name__ == '__main__':
             delivery_settings = read_excel(delivery_settings_path, header_row=2)  # Header:*配置名称|*外部编码|*附言（具体的发货内容填写在这里）|商品分类（选填）|自动发货开关（不填默认开启）|配置名称是否等于外部编码|附言是否包含外部编码|search_keywords|must_include_word|
 
             # Retrieve Main store results
-            print('【Load Main store results for getting current price')
+            print('【Load main store results for getting current price')
             main_store_results = load_store_results(main_store_name, main_store_homepage, store_must_include_word, store_max_scroll_page, scroll_page_timeout_second)
 
             summary_results = []
@@ -378,9 +378,10 @@ if __name__ == '__main__':
                 print(f'【Scan Platform by keyword: {setting_search_keywords}, include: {setting_must_include_word}')
                 platform_results = scan_platform(idx, setting_search_keywords, setting_must_include_word, platform_max_scroll_page, scroll_page_timeout_second)
 
-                platform_sorted_results = sorted(platform_results, key=lambda x: x['price'])
-                platform_min_price = get_min_price_but_greater_than_one(platform_results)
-                platform_combine_prices = get_comebine_prices(platform_results)
+                if platform_results is not None:
+                    platform_sorted_results = sorted(platform_results, key=lambda x: x['price'])
+                    platform_combine_prices = get_comebine_prices(platform_results)
+                    platform_min_price = get_min_price_but_greater_than_one(platform_results)
 
                 # Find target main store result, get current title, wanted, price
                 main_store_result = get_store_result_by_key(main_store_results, setting_must_include_word)
@@ -406,7 +407,7 @@ if __name__ == '__main__':
             print('【ALL available stores:')
             for idx, store in enumerate(stores, start=1):
                 print(f'-> {idx}.{store['store_name']} {store['home_page']}')
-            store_index = input('【Select store index?: ')
+            store_index = input('【Select store index: ')
             store_name = stores[int(store_index)-1]['store_name']
             store_homepage = stores[int(store_index)-1]['home_page']
 
