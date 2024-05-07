@@ -10,7 +10,6 @@ import sys
 import time
 from datetime import datetime
 import subprocess
-
 import colorlog
 import openpyxl
 import openpyxl.utils
@@ -19,6 +18,15 @@ from uiautomator2 import Device
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
+import requests
+from retrying import retry
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from ext.webdriver_manage_extend import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -123,13 +131,9 @@ def save_excel(data_list: list, output_file: str) -> None:
     wb.save(output_file)
 
 
-def get_save_folder() -> str:
+def get_save_path(*paths: str) -> str:
     date = TimeUtil.curr_date()
-    return os.path.join(os.getcwd(), 'save', date)
-
-
-def get_save_path(filename: str) -> str:
-    return os.path.join(get_save_folder(), filename)
+    return os.path.join(os.getcwd(), 'save', date, *paths)
 
 
 def swipe_up():
@@ -325,6 +329,143 @@ def full_outer_join(store_results: list, delivery_settings: list):
                 break
     resultsDataFrame = pd.merge(pd.DataFrame(delivery_settings), pd.DataFrame(store_results), on='must_include_word', how='outer')
     return resultsDataFrame.to_dict(orient='records')
+
+
+@retry(stop_max_attempt_number=3, wait_fixed=1500)
+def fetch_url_retry(url, stream):
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+    response = requests.Session().get(url=url, headers=headers, stream=stream)
+    response.raise_for_status()
+    return response
+
+
+def smooth_scroll_to(driver, element, duration=1500):
+    js_code = """
+        function smoothScrollTo(element, duration) {
+            const startingY = window.pageYOffset;
+            const elementY = element.getBoundingClientRect().top + window.pageYOffset;
+            const targetY = document.body.scrollHeight - elementY < window.innerHeight ? document.body.scrollHeight - window.innerHeight : elementY;
+            const diff = targetY - startingY;
+            let start;
+
+            function step(timestamp) {
+                if (!start) start = timestamp;
+                const time = timestamp - start;
+                const percent = Math.min(time / duration, 1);
+                window.scrollTo(0, startingY + diff * percent);
+                if (time < duration) {
+                    window.requestAnimationFrame(step);
+                }
+            }
+
+            window.requestAnimationFrame(step);
+        }
+        smoothScrollTo(arguments[0], arguments[1]);
+    """
+    driver.execute_script(js_code, element, duration)
+    time.sleep(duration/1000)  # because the above code is async on ui render, need to wait the duration time
+
+
+def sanitize_filename(filename):
+    invalid_chars_pattern = r'[\\/:*?"<>|\r\n\t]'
+    sanitized_filename = re.sub(invalid_chars_pattern, '_', filename)
+    sanitized_filename = sanitized_filename.strip('. ')
+    return sanitized_filename
+
+
+def save_html_page(url):
+    service = Service(ChromeDriverManager().install())
+    chrome_options = Options()
+    # chrome_options.add_argument('--headless')
+    # chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+    chrome_options.add_argument("--disable-blink-features")
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    try:
+        # Escape Taobao's anti-crawling mechanism
+        script = '''
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined
+            })
+        '''
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": script})
+
+        driver.get(url)
+
+        xpath_qrcode_container = "//div[starts-with(@class, 'rax-view-v2 Detail--qrcodeContainer--')]"
+        qrcode_container = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, xpath_qrcode_container)))
+        driver.execute_script("arguments[0].remove();", qrcode_container)
+
+        # It's iframe website, support scrolling need to go to iframe first
+        iframe_element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.TAG_NAME, "iframe")))
+        driver.switch_to.frame(iframe_element)
+
+        xpath_detail_desc_expression = "//span[starts-with(@class, 'rax-text-v2 detailDesc--descText--')]"
+        detail_desc_span = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, xpath_detail_desc_expression)))
+
+        sub_folder = get_save_path(sanitize_filename(detail_desc_span.text[:30])).replace('\n', ' ')
+        if not os.path.exists(sub_folder):
+            os.makedirs(sub_folder)
+
+        detail_desc_filepath = get_save_path(sub_folder, "doc.txt")
+        with open(detail_desc_filepath, 'w', encoding='utf-8') as file:
+            file.write(detail_desc_span.text)
+
+        max_scroll_attempts = 20
+        current_scroll_attempt = 0
+        xpath_recommendwrap_expression = "//div[starts-with(@class, 'rax-view-v2 recommendGoods--recommendWrap--')]"
+
+        while current_scroll_attempt < max_scroll_attempts:
+            try:
+                recommend_wrap = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, xpath_recommendwrap_expression)))
+                smooth_scroll_to(driver, recommend_wrap)
+                driver.execute_script("arguments[0].remove();", recommend_wrap)
+                print(f"Found target element {recommend_wrap}")
+                break
+            except Exception:
+                driver.execute_script("window.scrollBy(0, 300);")
+                current_scroll_attempt += 1
+                print(f"{current_scroll_attempt} attempt at scrolling...")
+
+            if current_scroll_attempt == max_scroll_attempts:
+                print("The maximum number of scrolls has been reached and the target element has not been found.")
+                break
+
+        mhtml_content = driver.execute_cdp_cmd("Page.captureSnapshot", {"format": "mhtml"})
+        mhtml_data = mhtml_content['data'].encode('utf-8')
+        mhtml_path = get_save_path(sub_folder, "index.mhtml")
+        with open(mhtml_path, 'wb') as file:
+            file.write(mhtml_data)
+        print(f"mhtml page is saved to :{mhtml_path}")
+
+        xpath_imagecontainer_expression = "//div[starts-with(@class, 'rax-view-v2 imageListMod--imageWrap--')]"
+        image_container = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, xpath_imagecontainer_expression)))
+
+        if image_container:
+            image_elements = image_container.find_elements(By.TAG_NAME, "img")
+            for index, image_element in enumerate(image_elements, start=1):
+                image_url = image_element.get_attribute("src")
+                if image_url and image_url.startswith("http"):
+                    try:
+                        image_name = f"{index}.png"
+                        image_path = get_save_path(sub_folder, image_name)
+                        response = fetch_url_retry(image_url, stream=True)
+                        if response.status_code == 200:
+                            with open(image_path, 'wb') as file:
+                                for chunk in response.iter_content(chunk_size=1024):
+                                    if chunk:
+                                        file.write(chunk)
+                            print(f"Picture is downloaded to: {image_path}")
+                        else:
+                            print(f"Picture download failed, URL: {image_url}, status: {response.status_code}")
+                    except Exception as e:
+                        print(f"Picture download exception: {e}")
+
+        driver.switch_to.default_content()
+    finally:
+        driver.quit()
 
 
 if __name__ == '__main__':
