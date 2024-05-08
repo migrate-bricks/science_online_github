@@ -169,7 +169,7 @@ def open_page_by_url(url: str):  # Use adb shell to open store home page via app
     subprocess.run(["adb", "shell", intent_command], check=True)
     d(resourceId="android.miui:id/app1").wait(exists=True, timeout=2)  # In case there are more than one same app installed, it will popup the window
     d(resourceId="android.miui:id/app1").click_exists()
-    d.sleep(5)
+    d.sleep(1)
 
 
 def get_platform_price(s: str) -> float:
@@ -485,7 +485,7 @@ if __name__ == '__main__':
         android_devices = scan_config['android_devices']
         print('【ALL available android devices:')
         for idx, device in enumerate(android_devices, start=1):
-            print(f'-> {idx} -- {device['name']} {device['addr']}')
+            print(f"-> {idx} -- {device['name']} {device['addr']}")
         print('-> Press Enter to use the default device')
         device_index = input('【Select device index: ')
         if device_index == '':
@@ -555,7 +555,7 @@ if __name__ == '__main__':
         elif scan_type == '2':  # Scan Store
             print('【ALL available stores:')
             for idx, store in enumerate(stores, start=1):
-                print(f'-> {idx}.{store['store_name']} {store['home_page']}')
+                print(f"-> {idx}.{store['store_name']} {store['home_page']}")
             store_index = input('【Select store index: ')
             store_name = stores[int(store_index)-1]['store_name']
             store_homepage = stores[int(store_index)-1]['home_page']

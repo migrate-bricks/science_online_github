@@ -4,7 +4,7 @@
         { "name": "Jiao", "addr": "qorkaqhaha9twcmz"}
     ],
     "delivery_settings_path": "D:/IdleFish/Agiso-Delivery-Settings.xlsx",
-    "scroll_page_timeout_second": 3,
+    "scroll_page_timeout_second": 1,
     "scan_platform":{
         "max_scroll_page": 10
     },
