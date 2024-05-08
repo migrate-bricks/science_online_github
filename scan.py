@@ -293,6 +293,14 @@ def scan_store(store_name: str, must_include_word: str, max_scroll_page: int, sc
                         if price is not None and price != '' and not any(d['title'] == el_description for d in results):  # Skip duplicated item
                             logger.info(f"【{len(results)+1}】-description:{el_description}, price:{price}, wanted:{wanted}")
                             results.append({'title': el_description, 'price': price, 'wanted': wanted})
+                        # el.click()
+                        # d(description="分享").must_wait()
+                        # d(description="分享").click()
+                        # d(description="复制链接").must_wait()
+                        # d(description="复制链接").click()
+                        # d(description="淘口令已复制").must_wait()
+                        # d.press("back")
+                        # print(d.clipboard.get())
             if d(descriptionContains='没有更多了').exists:  # Alread on the end of the page
                 break
             swipe_up()
@@ -558,8 +566,8 @@ if __name__ == '__main__':
             print('【Load Store results')
             store_results = load_store_results(store_name, store_homepage, store_must_include_word, store_max_scroll_page, scroll_page_timeout_second)
 
-            mrege_results = full_outer_join(store_results, delivery_settings)
+            merge_results = full_outer_join(store_results, delivery_settings)
 
             summary_store_excel_file_path = get_save_path(f"SUMMARY_STORE_{store_name}.xlsx")
             print(f'【Save {store_name} STORE SUMMARY results, path: {summary_store_excel_file_path}')
-            save_excel(mrege_results, summary_store_excel_file_path)
+            save_excel(merge_results, summary_store_excel_file_path)
