@@ -236,7 +236,7 @@ def should_scan_store(store_excel_file_path: str) -> bool:
     if not os.path.exists(store_excel_file_path):
         return True
     store_name = os.path.splitext(os.path.basename(store_excel_file_path))[0]
-    print(f'-> {store_name} results are already exists, path: {store_excel_file_path}')
+    logger.info(f'-> {store_name} results are already exists, path: {store_excel_file_path}')
     overwrite = input('【Overwrite? 1.Yes, 2.No: ')
     return (overwrite == '1')
 
@@ -269,11 +269,11 @@ def scan_platform(idx: int, search_keywords: str, must_include_word: str, max_sc
                 swipe_up()
         return results
     except Exception as e:
-        print(e)
+        logger.info(e)
         logger.error("Program runs Error:" + str(e.args[0]))
     finally:
         main_complete()
-        print("Execution Completed!")
+        logger.info("Execution Completed!")
 
 
 def retrieve_store_detail(eleView: XMLElement) -> str | None:
@@ -328,25 +328,25 @@ def scan_store(store_name: str, must_include_word: str, max_scroll_page: int, sc
             swipe_up()
         return store_results
     except Exception as e:
-        print(e)
+        logger.info(e)
         logger.error("Program runs Error:" + str(e.args[0]))
     finally:
         main_complete()
-        print("Execution Completed!")
+        logger.info("Execution Completed!")
 
 
 def load_store_results(store_name: str, store_homepage: str, store_must_include_word: str, store_max_scroll_page: int, store_scroll_page_timeout: float) -> list:
     store_excel_file_path = get_save_path(f"STORE_{store_name}.xlsx")
     if should_scan_store(store_excel_file_path):
-        print(f'【Navigate to store: {store_name}, homepage: {store_homepage}')
+        logger.info(f'【Navigate to store: {store_name}, homepage: {store_homepage}')
         open_page_by_url(store_homepage)
-        print(f'【Scan store: {store_name}, homepage: {store_homepage}')
+        logger.info(f'【Scan store: {store_name}, homepage: {store_homepage}')
         store_results = scan_store(store_name, store_must_include_word, store_max_scroll_page, store_scroll_page_timeout)
         store_sorted_results = sorted(store_results, key=lambda x: x['wanted'], reverse=True)
-        print(f'【Save store {store_name} results, path: {store_excel_file_path}')
+        logger.info(f'【Save store {store_name} results, path: {store_excel_file_path}')
         save_excel(store_sorted_results, store_excel_file_path)
     else:
-        print(f'【Read store {store_name} results from existing path: {store_excel_file_path}')
+        logger.info(f'【Read store {store_name} results from existing path: {store_excel_file_path}')
         store_results = read_excel(store_excel_file_path, header_row=1)
     return store_results
 
@@ -452,15 +452,15 @@ def parse_html_page(url):
                 recommend_wrap = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, xpath_recommendwrap_expression)))
                 smooth_scroll_to(driver, recommend_wrap)
                 driver.execute_script("arguments[0].remove();", recommend_wrap)
-                print(f"Found target element {recommend_wrap}")
+                logger.info(f"Found target element {recommend_wrap}")
                 break
             except Exception:
                 driver.execute_script("window.scrollBy(0, 300);")
                 current_scroll_attempt += 1
-                print(f"{current_scroll_attempt} attempt at scrolling...")
+                logger.info(f"{current_scroll_attempt} attempt at scrolling...")
 
             if current_scroll_attempt == max_scroll_attempts:
-                print("The maximum number of scrolls has been reached and the target element has not been found.")
+                logger.info("The maximum number of scrolls has been reached and the target element has not been found.")
                 break
 
         mhtml_content = driver.execute_cdp_cmd("Page.captureSnapshot", {"format": "mhtml"})
@@ -468,7 +468,7 @@ def parse_html_page(url):
         mhtml_path = get_save_path(sub_folder, "index.mhtml")
         with open(mhtml_path, 'wb') as file:
             file.write(mhtml_data)
-        print(f"mhtml page is saved to :{mhtml_path}")
+        logger.info(f"mhtml page is saved to :{mhtml_path}")
 
         xpath_soldprice_expression = "//div[starts-with(@class, 'rax-text-v2 priceMod--soldPrice--')]"
         span_price = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, xpath_soldprice_expression)))
@@ -503,11 +503,11 @@ def parse_html_page(url):
                                 for chunk in response.iter_content(chunk_size=1024):
                                     if chunk:
                                         file.write(chunk)
-                            print(f"Picture is downloaded to: {image_path}")
+                            logger.info(f"Picture is downloaded to: {image_path}")
                         else:
-                            print(f"Picture download failed, URL: {image_url}, status: {response.status_code}")
+                            logger.info(f"Picture download failed, URL: {image_url}, status: {response.status_code}")
                     except Exception as e:
-                        print(f"Picture download exception: {e}")
+                        logger.info(f"Picture download exception: {e}")
 
         driver.switch_to.default_content()
     finally:
@@ -545,7 +545,7 @@ def get_device_details(device_sn):
 
 
 if __name__ == '__main__':
-    print('Please be sure: \n1.The uiautomator2 has connected to android device\n2.Setup the `correct android_device_addr` in scan_config.json\n')
+    logger.info('Please be sure: \n1.The uiautomator2 has connected to android device\n2.Setup the `correct android_device_addr` in scan_config.json\n')
 
     with open('./scan_config.json', 'r', encoding='utf8') as fp:
         scan_config = json.load(fp)
@@ -567,18 +567,18 @@ if __name__ == '__main__':
         if connected_devices:
             d = u2.connect(connected_devices[0])  # Get first device id
         else:
-            print("Not found devices...")
+            logger.info("Not found devices...")
             exit
 
         scan_type = input('【Select scan type 1.Platform or 2.Store: ')
 
         if scan_type == '1':  # Scan platform
-            print('【Scan platform Start')
-            print(f'【Read global delivery settings from path: {delivery_settings_path}')
+            logger.info('【Scan platform Start')
+            logger.info(f'【Read global delivery settings from path: {delivery_settings_path}')
             delivery_settings = read_excel(delivery_settings_path, header_row=2)  # Header:*配置名称|*外部编码|*附言（具体的发货内容填写在这里）|商品分类（选填）|自动发货开关（不填默认开启）|配置名称是否等于外部编码|附言是否包含外部编码|search_keywords|must_include_word|
 
             # Retrieve Main store results
-            print('【Load main store results for getting current price')
+            logger.info('【Load main store results for getting current price')
             main_store_results = load_store_results(main_store_name, main_store_homepage, store_must_include_word, store_max_scroll_page, scroll_page_timeout_second)
 
             summary_results = []
@@ -586,7 +586,7 @@ if __name__ == '__main__':
                 setting_search_keywords = delivery_setting['search_keywords'].split(',')
                 setting_must_include_word = delivery_setting['must_include_word']  # Foreign key
 
-                print(f'【Scan Platform by keyword: {setting_search_keywords}, include: {setting_must_include_word}')
+                logger.info(f'【Scan Platform by keyword: {setting_search_keywords}, include: {setting_must_include_word}')
                 platform_results = scan_platform(idx, setting_search_keywords, setting_must_include_word, platform_max_scroll_page, scroll_page_timeout_second)
 
                 if platform_results is not None:
@@ -601,7 +601,7 @@ if __name__ == '__main__':
 
                 platform_excel_file_name = f"PLATFORM_{setting_must_include_word}_price_{current_price}_min_{platform_min_price}.xlsx"
                 platform_excel_file_path = get_save_path(platform_excel_file_name)
-                print(f'【{idx}_Save Platform results keywords:{setting_search_keywords}, include: {setting_must_include_word} path: {platform_excel_file_path}')
+                logger.info(f'【{idx}_Save Platform results keywords:{setting_search_keywords}, include: {setting_must_include_word} path: {platform_excel_file_path}')
                 save_excel(platform_sorted_results, platform_excel_file_path)
                 logger.info(f"【{idx}: Save Platform results completed, File path: {platform_excel_file_path}")
 
@@ -615,21 +615,21 @@ if __name__ == '__main__':
             save_excel(summary_results, summary_excel_file_path)
             logger.info(f"【Platform Summary Execution completed, File path: {summary_excel_file_path}")
         elif scan_type == '2':  # Scan Store
-            print('【ALL available stores:')
+            logger.info('【ALL available stores:')
             for idx, store in enumerate(stores, start=1):
-                print(f"-> {idx}.{store['store_name']} {store['home_page']}")
+                logger.info(f"-> {idx}.{store['store_name']} {store['home_page']}")
             store_index = input('【Select store index: ')
             store_name = stores[int(store_index)-1]['store_name']
             store_homepage = stores[int(store_index)-1]['home_page']
 
-            print(f'【Read global delivery settings from path: {delivery_settings_path}')
+            logger.info(f'【Read global delivery settings from path: {delivery_settings_path}')
             delivery_settings = read_excel(delivery_settings_path, header_row=2)  # Header:*配置名称|*外部编码|*附言（具体的发货内容填写在这里）|商品分类（选填）|自动发货开关（不填默认开启）|配置名称是否等于外部编码|附言是否包含外部编码|search_keywords|must_include_word|
 
-            print('【Load Store results')
+            logger.info('【Load Store results')
             store_results = load_store_results(store_name, store_homepage, store_must_include_word, store_max_scroll_page, scroll_page_timeout_second)
 
             merge_results = full_outer_join(store_results, delivery_settings)
 
             summary_store_excel_file_path = get_save_path(f"SUMMARY_STORE_{store_name}.xlsx")
-            print(f'【Save {store_name} STORE SUMMARY results, path: {summary_store_excel_file_path}')
+            logger.info(f'【Save {store_name} STORE SUMMARY results, path: {summary_store_excel_file_path}')
             save_excel(merge_results, summary_store_excel_file_path)
