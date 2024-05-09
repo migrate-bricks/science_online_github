@@ -10,11 +10,11 @@ import sys
 import time
 from datetime import datetime
 import subprocess
+from urllib.parse import urlparse
 import colorlog
 import openpyxl
 import openpyxl.utils
 import uiautomator2 as u2
-from uiautomator2 import Device
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
@@ -27,6 +27,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from uiautomator2.xpath import XMLElement
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -137,13 +138,13 @@ def get_save_path(*paths: str) -> str:
 
 
 def swipe_up():
-    d.swipe_ext('up', 0.9)
+    d.swipe_ext("up", scale=0.9)
 
 
 def open_page_by_keyword(search_keyword: str):
     d.app_start(package_name, activity_name, wait=True)
-    d(resourceId="com.taobao.idlefish:id/search_bar_layout").must_wait()
-    d(resourceId="com.taobao.idlefish:id/search_bar_layout").click()
+    d.xpath('//*[@resource-id="com.taobao.idlefish:id/search_bar_layout"]').wait()
+    d.xpath('//*[@resource-id="com.taobao.idlefish:id/search_bar_layout"]').click()
     d.send_keys(search_keyword, clear=True)
     d.press('enter')
 
@@ -275,36 +276,57 @@ def scan_platform(idx: int, search_keywords: str, must_include_word: str, max_sc
         print("Execution Completed!")
 
 
+def retrieve_store_detail(eleView: XMLElement) -> str | None:
+    eleView.click()
+    d.xpath("//*[@content-desc='分享']").wait()
+    d.xpath("//*[@content-desc='分享']").click()
+    d.xpath("//*[@content-desc='复制链接']").wait()
+    d.xpath("//*[@content-desc='复制链接']").click()
+    url = extract_url_from_text(d.xpath("//*[starts-with(@content-desc, '【闲鱼】')]").attrib['content-desc'])
+    d.press("back")
+    d.xpath("//*[starts-with(@content-desc, '【闲鱼】')]").wait_gone()
+    d.press("back")
+    d.xpath('//*[@content-desc="管理"]').wait_gone()
+    return parse_html_page(url)
+
+
+def extract_url_from_text(text):
+    url_pattern = re.compile(
+        r'http[s]?://'
+        r'(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    )
+    match = url_pattern.search(text)
+    return match.group(0) if match else None
+
+
 def scan_store(store_name: str, must_include_word: str, max_scroll_page: int, scroll_page_timeout: float):
     try:
-        logger.info(d.info)
         logger.info(f"【Retrieving products information for {store_name}")
-        results = []
+        store_results = []
         for idx in range(max_scroll_page):
             logger.info(f"【Scrolling to store: {store_name} [{idx}/{max_scroll_page}] page")
             TimeUtil.sleep(scroll_page_timeout)
             view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
             if len(view_list) > 0:
                 for el in view_list:
-                    el_description = clean_text(str(el.attrib['content-desc']))
-                    if must_include_word.lower() in el_description.lower():
-                        price = get_store_price(el_description)
-                        wanted = get_wanted(el_description)
-                        if price is not None and price != '' and not any(d['title'] == el_description for d in results):  # Skip duplicated item
-                            logger.info(f"【{len(results)+1}】-description:{el_description}, price:{price}, wanted:{wanted}")
-                            results.append({'title': el_description, 'price': price, 'wanted': wanted})
-                        # el.click()
-                        # d(description="分享").must_wait()
-                        # d(description="分享").click()
-                        # d(description="复制链接").must_wait()
-                        # d(description="复制链接").click()
-                        # d(description="淘口令已复制").must_wait()
-                        # d.press("back")
-                        # print(d.clipboard.get())
-            if d(descriptionContains='没有更多了').exists:  # Alread on the end of the page
+                    title = clean_text(str(el.attrib['content-desc']))
+                    if must_include_word.lower() in title.lower():
+                        # {"product_url": product_url, "soldprice": soldprice, "wants": wants, "likes": likes, "views": views}
+                        details = retrieve_store_detail(el)
+                        product_url = details["product_url"]
+                        soldprice = details["soldprice"]
+                        wants = details["wants"]
+                        likes = details["likes"]
+                        views = details["views"]
+                        if details and all(d['title'] != title for d in store_results):  # Skip duplicated item
+                            product = {"title": title, "product_url": product_url, "soldprice": soldprice, "wants": wants, "likes": likes, "views": views}
+                            store_results.append(product)
+                            logger.info(f"【{len(store_results)+1}】- {product}")
+
+            if d(descriptionContains='没有更多了').exists:
                 break
             swipe_up()
-        return results
+        return store_results
     except Exception as e:
         print(e)
         logger.error("Program runs Error:" + str(e.args[0]))
@@ -381,7 +403,7 @@ def sanitize_filename(filename):
     return sanitized_filename
 
 
-def save_html_page(url):
+def parse_html_page(url):
     service = Service(ChromeDriverManager().install())
     chrome_options = Options()
     # chrome_options.add_argument('--headless')
@@ -448,6 +470,22 @@ def save_html_page(url):
             file.write(mhtml_data)
         print(f"mhtml page is saved to :{mhtml_path}")
 
+        xpath_soldprice_expression = "//div[starts-with(@class, 'rax-text-v2 priceMod--soldPrice--')]"
+        span_price = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, xpath_soldprice_expression)))
+        if span_price:
+            soldprice = int(span_price.get_attribute("textContent"))
+
+        xpath_wantdetail_expression = "//div[starts-with(@class, 'rax-text-v2 subDetailMod--wantDetail--')]"
+        span_wantdetail = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, xpath_wantdetail_expression)))
+        if span_wantdetail:
+            wantdetail = span_wantdetail.get_attribute("textContent")
+            matches = re.findall(r"(\d+)人想要|赞(\d+)|浏览 (\d+)", wantdetail)
+            wants = int(matches[0][0]) if matches[0] else None
+            likes = int(matches[1][0]) if matches[1] else None
+            views = int(matches[2][0]) if matches[2] else None
+
+        product_url = get_base_url(driver.current_url)
+
         xpath_imagecontainer_expression = "//div[starts-with(@class, 'rax-view-v2 imageListMod--imageWrap--')]"
         image_container = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, xpath_imagecontainer_expression)))
 
@@ -474,6 +512,36 @@ def save_html_page(url):
         driver.switch_to.default_content()
     finally:
         driver.quit()
+        return {"product_url": product_url, "soldprice": soldprice, "wants": wants, "likes": likes, "views": views}
+
+
+def get_base_url(full_url):
+    parsed_url = urlparse(full_url)
+    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
+    return base_url
+
+
+def get_connected_devices():
+    output = subprocess.check_output(['adb', 'devices']).decode('utf-8')
+    devices_lines = output.strip().split('\n')[1:]
+    devices = [line.split('\t')[0] for line in devices_lines if line]
+    return devices
+
+
+def get_device_details(device_sn):
+    model_cmd = f'adb -s {device_sn} shell getprop ro.product.model'
+    manufacturer_cmd = f'adb -s {device_sn} shell getprop ro.product.manufacturer'
+    android_version_cmd = f'adb -s {device_sn} shell getprop ro.build.version.release'
+
+    model = subprocess.check_output(model_cmd, shell=True).decode('utf-8').strip()
+    manufacturer = subprocess.check_output(manufacturer_cmd, shell=True).decode('utf-8').strip()
+    android_version = subprocess.check_output(android_version_cmd, shell=True).decode('utf-8').strip()
+
+    return {
+        "Model": model,
+        "Manufacturer": manufacturer,
+        "AndroidVersion": android_version
+    }
 
 
 if __name__ == '__main__':
@@ -481,19 +549,6 @@ if __name__ == '__main__':
 
     with open('./scan_config.json', 'r', encoding='utf8') as fp:
         scan_config = json.load(fp)
-
-        android_devices = scan_config['android_devices']
-        print('【ALL available android devices:')
-        for idx, device in enumerate(android_devices, start=1):
-            print(f"-> {idx} -- {device['name']} {device['addr']}")
-        print('-> Press Enter to use the default device')
-        device_index = input('【Select device index: ')
-        if device_index == '':
-            android_device_addr = ''
-            d = Device()
-        else:
-            android_device_addr = android_devices[int(device_index)-1]['addr']
-            d = u2.connect(android_device_addr)  # Change it based on 'adb devices'
 
         scroll_page_timeout_second = scan_config['scroll_page_timeout_second']
         delivery_settings_path = scan_config['delivery_settings_path']
@@ -507,6 +562,13 @@ if __name__ == '__main__':
         # Define first store is the main store
         main_store_name = stores[0]['store_name']
         main_store_homepage = stores[0]['home_page']
+
+        connected_devices = get_connected_devices()
+        if connected_devices:
+            d = u2.connect(connected_devices[0])  # Get first device id
+        else:
+            print("Not found devices...")
+            exit
 
         scan_type = input('【Select scan type 1.Platform or 2.Store: ')
 
