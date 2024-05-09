@@ -31,3 +31,5 @@ whichcraft==0.6.1
 wrapt==1.16.0
 xmltodict==0.13.0
 pandas==2.2.2
+selenium==4.20.0
+webdriver_manager==4.0.1

@@ -10,6 +10,7 @@ import sys
 import time
 from datetime import datetime
 import subprocess
+import traceback
 from urllib.parse import urlparse
 import colorlog
 import openpyxl
@@ -162,7 +163,7 @@ def open_page_by_url_old(url: str):  # Use browser to open store home page
     d(textContains='允许').click_exists()
     d(resourceId="android.miui:id/app1").wait(exists=True, timeout=2)
     d(resourceId="android.miui:id/app1").click_exists()
-    d.sleep(5)
+    d.sleep(1)
 
 
 def open_page_by_url(url: str):  # Use adb shell to open store home page via app webview, performace is better
@@ -190,7 +191,7 @@ def get_store_price(s: str) -> float:
     return 0
 
 
-def get_wanted(s: str) -> float:
+def get_wants(s: str) -> float:
     match = re.search(r'(\d+\.?\d*)人想要', s)
     if match:
         price = match.group(1)
@@ -250,7 +251,7 @@ def scan_platform(idx: int, search_keywords: str, must_include_word: str, max_sc
             for i in range(max_scroll_page):
                 logger.info(f"Scrolling to idx: {idx}, keyword: {search_keyword}, include: {must_include_word} [{i}/{max_scroll_page}] page")
                 TimeUtil.sleep(scroll_page_timeout)
-                view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
+                view_list = d.xpath('//android.widget.ScrollView//android.view.View//*').all()
                 if len(view_list) > 0:
                     for el in view_list:
                         if len(el.elem.getchildren()) > 0:
@@ -259,11 +260,11 @@ def scan_platform(idx: int, search_keywords: str, must_include_word: str, max_sc
                                 el_description = f"{el_description}&{clean_platform_text(str(child.attrib['content-desc']))}"  # combine el_description
                             if must_include_word.lower() in el_description.lower():
                                 price = get_platform_price(el_description)
-                                wanted = get_wanted(el_description)
+                                wants = get_wants(el_description)
                                 # skip duplicated item
                                 if price is not None and price != '' and not any(d['title'] == el_description for d in results):
-                                    logger.info(f"【{len(results)+1}】-description:{el_description}, price:{price}, wanted:{wanted}")
-                                    results.append({'title': el_description, 'price': price, 'wanted': wanted})
+                                    logger.info(f"【{len(results)+1}】-description:{el_description}, price:{price}, wants:{wants}")
+                                    results.append({'title': el_description, 'price': price, 'wants': wants})
                 if d(descriptionContains='到底了').exists:  # alread on the end of the page
                     break
                 swipe_up()
@@ -276,18 +277,29 @@ def scan_platform(idx: int, search_keywords: str, must_include_word: str, max_sc
         logger.info("Execution Completed!")
 
 
-def retrieve_store_detail(eleView: XMLElement) -> str | None:
+def retrieve_store_url(eleView: XMLElement):
     eleView.click()
+    time.sleep(0.5)
+    logger.info("wait for '分享' button appear.")
     d.xpath("//*[@content-desc='分享']").wait()
-    d.xpath("//*[@content-desc='分享']").click()
+    logger.info("click '分享' button.")
+    d.xpath("//*[@content-desc='分享']").click_exists()
+    time.sleep(0.5)
+
+    logger.info("wait for '复制链接' button appear.")
     d.xpath("//*[@content-desc='复制链接']").wait()
-    d.xpath("//*[@content-desc='复制链接']").click()
+    logger.info("click '复制链接' button.")
+    d.xpath("//*[@content-desc='复制链接']").click_exists()
+    time.sleep(0.5)
+
     url = extract_url_from_text(d.xpath("//*[starts-with(@content-desc, '【闲鱼】')]").attrib['content-desc'])
     d.press("back")
+    time.sleep(0.5)
     d.xpath("//*[starts-with(@content-desc, '【闲鱼】')]").wait_gone()
     d.press("back")
+    time.sleep(0.5)
     d.xpath('//*[@content-desc="管理"]').wait_gone()
-    return parse_html_page(url)
+    return url
 
 
 def extract_url_from_text(text):
@@ -305,31 +317,32 @@ def scan_store(store_name: str, must_include_word: str, max_scroll_page: int, sc
         store_results = []
         for idx in range(max_scroll_page):
             logger.info(f"【Scrolling to store: {store_name} [{idx}/{max_scroll_page}] page")
-            TimeUtil.sleep(scroll_page_timeout)
-            view_list = d.xpath('//android.widget.ScrollView//android.view.View').all()
+            view_list = d.xpath('//android.widget.ScrollView//android.view.View//*').all()
             if len(view_list) > 0:
                 for el in view_list:
                     title = clean_text(str(el.attrib['content-desc']))
-                    if must_include_word.lower() in title.lower():
+                    if must_include_word.lower() in title.lower() and not any(d['title'] == title for d in store_results):  # Skip duplicated item
                         # {"product_url": product_url, "soldprice": soldprice, "wants": wants, "likes": likes, "views": views}
-                        details = retrieve_store_detail(el)
-                        product_url = details["product_url"]
-                        soldprice = details["soldprice"]
-                        wants = details["wants"]
-                        likes = details["likes"]
-                        views = details["views"]
-                        if details and all(d['title'] != title for d in store_results):  # Skip duplicated item
-                            product = {"title": title, "product_url": product_url, "soldprice": soldprice, "wants": wants, "likes": likes, "views": views}
-                            store_results.append(product)
-                            logger.info(f"【{len(store_results)+1}】- {product}")
+                        product_url = retrieve_store_url(el)
+                        # if details:
+                        #     product_url = details["product_url"]
+                        #     soldprice = details["soldprice"]
+                        #     wants = details["wants"]
+                        #     likes = details["likes"]
+                        #     views = details["views"]
+                        product = {"title": title, "product_url": product_url, "soldprice": 0, "wants": 0, "likes": 0, "views": 0}
+                        store_results.append(product)
+                        logger.info(f"【{len(store_results)+1}】- {product}")
 
             if d(descriptionContains='没有更多了').exists:
                 break
             swipe_up()
+            TimeUtil.sleep(scroll_page_timeout)
         return store_results
     except Exception as e:
         logger.info(e)
         logger.error("Program runs Error:" + str(e.args[0]))
+        traceback.print_exc()
     finally:
         main_complete()
         logger.info("Execution Completed!")
@@ -342,9 +355,20 @@ def load_store_results(store_name: str, store_homepage: str, store_must_include_
         open_page_by_url(store_homepage)
         logger.info(f'【Scan store: {store_name}, homepage: {store_homepage}')
         store_results = scan_store(store_name, store_must_include_word, store_max_scroll_page, store_scroll_page_timeout)
-        store_sorted_results = sorted(store_results, key=lambda x: x['wanted'], reverse=True)
         logger.info(f'【Save store {store_name} results, path: {store_excel_file_path}')
+        save_excel(store_results, store_excel_file_path)
+
+        for sr in store_results:
+            # {"product_url": product_url, "soldprice": soldprice, "wants": wants, "likes": likes, "views": views}
+            product_url = sr["product_url"]
+            details = parse_html_page(product_url)
+            sr["soldprice"] = details["soldprice"]
+            sr["wants"] = details["wants"]
+            sr["likes"] = details["likes"]
+            sr["views"] = details["views"]
+        store_sorted_results = sorted(store_results, key=lambda x: x['wants'], reverse=True)
         save_excel(store_sorted_results, store_excel_file_path)
+
     else:
         logger.info(f'【Read store {store_name} results from existing path: {store_excel_file_path}')
         store_results = read_excel(store_excel_file_path, header_row=1)
@@ -403,7 +427,7 @@ def sanitize_filename(filename):
     return sanitized_filename
 
 
-def parse_html_page(url):
+def init_driver():
     service = Service(ChromeDriverManager().install())
     chrome_options = Options()
     # chrome_options.add_argument('--headless')
@@ -413,27 +437,31 @@ def parse_html_page(url):
     chrome_options.add_argument("--disable-blink-features")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     driver = webdriver.Chrome(service=service, options=chrome_options)
-    try:
-        # Escape Taobao's anti-crawling mechanism
-        script = '''
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined
-            })
-        '''
-        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": script})
+    # Escape Taobao's anti-crawling mechanism
+    script = '''
+        Object.defineProperty(navigator, 'webdriver', {
+            get: () => undefined
+        })
+    '''
+    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": script})
+    return driver
 
+
+def parse_html_page(url):
+    try:
+        driver = init_driver()
         driver.get(url)
 
         xpath_qrcode_container = "//div[starts-with(@class, 'rax-view-v2 Detail--qrcodeContainer--')]"
-        qrcode_container = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, xpath_qrcode_container)))
+        qrcode_container = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, xpath_qrcode_container)))
         driver.execute_script("arguments[0].remove();", qrcode_container)
 
         # It's iframe website, support scrolling need to go to iframe first
-        iframe_element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.TAG_NAME, "iframe")))
+        iframe_element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "iframe")))
         driver.switch_to.frame(iframe_element)
 
         xpath_detail_desc_expression = "//span[starts-with(@class, 'rax-text-v2 detailDesc--descText--')]"
-        detail_desc_span = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, xpath_detail_desc_expression)))
+        detail_desc_span = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, xpath_detail_desc_expression)))
 
         sub_folder = get_save_path(sanitize_filename(detail_desc_span.text[:30])).replace('\n', ' ')
         if not os.path.exists(sub_folder):
@@ -458,6 +486,7 @@ def parse_html_page(url):
                 driver.execute_script("window.scrollBy(0, 300);")
                 current_scroll_attempt += 1
                 logger.info(f"{current_scroll_attempt} attempt at scrolling...")
+                traceback.print_exc()
 
             if current_scroll_attempt == max_scroll_attempts:
                 logger.info("The maximum number of scrolls has been reached and the target element has not been found.")
@@ -470,19 +499,19 @@ def parse_html_page(url):
             file.write(mhtml_data)
         logger.info(f"mhtml page is saved to :{mhtml_path}")
 
-        xpath_soldprice_expression = "//div[starts-with(@class, 'rax-text-v2 priceMod--soldPrice--')]"
+        xpath_soldprice_expression = "//span[starts-with(@class, 'rax-text-v2 priceMod--soldPrice--')]"
         span_price = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, xpath_soldprice_expression)))
         if span_price:
             soldprice = int(span_price.get_attribute("textContent"))
 
-        xpath_wantdetail_expression = "//div[starts-with(@class, 'rax-text-v2 subDetailMod--wantDetail--')]"
+        xpath_wantdetail_expression = "//span[starts-with(@class, 'rax-text-v2 subDetailMod--wantDetail--')]"
         span_wantdetail = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, xpath_wantdetail_expression)))
         if span_wantdetail:
             wantdetail = span_wantdetail.get_attribute("textContent")
-            matches = re.findall(r"(\d+)人想要|赞(\d+)|浏览 (\d+)", wantdetail)
-            wants = int(matches[0][0]) if matches[0] else None
-            likes = int(matches[1][0]) if matches[1] else None
-            views = int(matches[2][0]) if matches[2] else None
+            matches = re.findall(r'\d+', wantdetail)
+            wants = int(matches[0]) if matches[0] else None
+            likes = int(matches[1]) if matches[1] else None
+            views = int(matches[2]) if matches[2] else None
 
         product_url = get_base_url(driver.current_url)
 
@@ -508,8 +537,12 @@ def parse_html_page(url):
                             logger.info(f"Picture download failed, URL: {image_url}, status: {response.status_code}")
                     except Exception as e:
                         logger.info(f"Picture download exception: {e}")
+                        traceback.print_exc()
 
         driver.switch_to.default_content()
+    except Exception as e:
+        logger.info(f"parse html exception: {e}")
+        traceback.print_exc()
     finally:
         driver.quit()
         return {"product_url": product_url, "soldprice": soldprice, "wants": wants, "likes": likes, "views": views}
@@ -545,7 +578,7 @@ def get_device_details(device_sn):
 
 
 if __name__ == '__main__':
-    logger.info('Please be sure: \n1.The uiautomator2 has connected to android device\n2.Setup the `correct android_device_addr` in scan_config.json\n')
+    print('Please be sure: \n1.The uiautomator2 has connected to android device\n2.Setup the `correct android_device_addr` in scan_config.json\n')
 
     with open('./scan_config.json', 'r', encoding='utf8') as fp:
         scan_config = json.load(fp)
@@ -594,7 +627,7 @@ if __name__ == '__main__':
                     platform_combine_prices = get_comebine_prices(platform_results)
                     platform_min_price = get_min_price_but_greater_than_one(platform_results)
 
-                # Find target main store result, get current title, wanted, price
+                # Find target main store result, get current title, wants, price
                 main_store_result = get_store_result_by_key(main_store_results, setting_must_include_word)
                 if main_store_result is not None:
                     current_price = main_store_result.get('price')
@@ -615,9 +648,9 @@ if __name__ == '__main__':
             save_excel(summary_results, summary_excel_file_path)
             logger.info(f"【Platform Summary Execution completed, File path: {summary_excel_file_path}")
         elif scan_type == '2':  # Scan Store
-            logger.info('【ALL available stores:')
+            print('【ALL available stores:')
             for idx, store in enumerate(stores, start=1):
-                logger.info(f"-> {idx}.{store['store_name']} {store['home_page']}")
+                print(f"-> {idx}.{store['store_name']} {store['home_page']}")
             store_index = input('【Select store index: ')
             store_name = stores[int(store_index)-1]['store_name']
             store_homepage = stores[int(store_index)-1]['home_page']
