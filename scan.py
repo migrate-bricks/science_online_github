@@ -195,7 +195,7 @@ def get_wants(s: str) -> float:
     match = re.search(r'(\d+\.?\d*)人想要', s)
     if match:
         price = match.group(1)
-        return float(price)
+        return int(price)
     return 0
 
 
@@ -314,6 +314,7 @@ def extract_url_from_text(text):
 def scan_store(store_name: str, must_include_word: str, max_scroll_page: int, scroll_page_timeout: float):
     try:
         logger.info(f"【Retrieving products information for {store_name}")
+        d(descriptionContains="在售").click_exists()
         store_results = []
         for idx in range(max_scroll_page):
             logger.info(f"【Scrolling to store: {store_name} [{idx}/{max_scroll_page}] page")
@@ -324,13 +325,15 @@ def scan_store(store_name: str, must_include_word: str, max_scroll_page: int, sc
                     if must_include_word.lower() in title.lower() and not any(d['title'] == title for d in store_results):  # Skip duplicated item
                         # {"product_url": product_url, "soldprice": soldprice, "wants": wants, "likes": likes, "views": views}
                         product_url = retrieve_store_url(el)
+                        soldprice = get_store_price(title)
+                        wants = get_wants(title)
                         # if details:
                         #     product_url = details["product_url"]
                         #     soldprice = details["soldprice"]
                         #     wants = details["wants"]
                         #     likes = details["likes"]
                         #     views = details["views"]
-                        product = {"title": title, "product_url": product_url, "soldprice": 0, "wants": 0, "likes": 0, "views": 0}
+                        product = {"title": title, "product_url": product_url, "soldprice": soldprice, "wants": wants, "likes": 0, "views": 0}
                         store_results.append(product)
                         logger.info(f"【{len(store_results)+1}】- {product}")
 
