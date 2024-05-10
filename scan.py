@@ -577,6 +577,46 @@ def get_device_details(device_sn):
     }
 
 
+def auto_review():
+    d.app_start(package_name, activity_name, wait=True)
+    d(resourceId="com.taobao.idlefish:id/tab_title", text="我的").wait()
+    d(resourceId="com.taobao.idlefish:id/tab_title", text="我的").click()
+    time.sleep(1)
+    d(descriptionContains="我卖出的").click()
+    time.sleep(1)
+    d(description="待评价\n第 5 个标签，共 6 个").click()
+    time.sleep(3)
+    while True:
+        time.sleep(2)
+        view_list = d.xpath('//android.view.View').all()
+        if len(view_list) > 0:
+            for el in view_list:
+                if '交易成功' in str(el.attrib['content-desc']):
+                    (left_top_x, left_top_y, width, height) = el.rect
+                    x = left_top_x+(920-0)
+                    y = left_top_y+(728-343)
+                    # click '去评价'
+                    d.click(x, y)
+                    time.sleep(1)
+                    d.xpath('//*[@content-desc="赏好评"]').wait()
+                    d.xpath('//*[@content-desc="赏好评"]').click_exists()
+                    time.sleep(1)
+                    comment = "非常棒的顾客，下单迅速，确认及时，沟通顺畅，态度超赞，五星好评，期待再次光临！！！"
+                    # todo: try to find a better way
+                    d.xpath('//*[@resource-id="android:id/content"]/android.widget.FrameLayout//android.widget.FrameLayout///android.widget.FrameLayout//android.widget.FrameLayout//android.view.View//android.view.View//android.view.View//android.view.View//android.view.View//android.view.View//android.view.View//android.view.View[4]').set_text(comment)
+                    time.sleep(1)
+                    d(description="发布").wait()
+                    d(description="发布").click_exists()
+                    time.sleep(2)
+                    d(description="评价详情").wait()
+                    d.press("back")
+                    time.sleep(1)
+                    d(description="评价详情").wait_gone()
+        else:
+            break
+    print('done')
+
+
 if __name__ == '__main__':
     print('Please be sure: \n1.The uiautomator2 has connected to android device\n2.Setup the `correct android_device_addr` in scan_config.json\n')
 
@@ -603,7 +643,7 @@ if __name__ == '__main__':
             logger.info("Not found devices...")
             exit
 
-        scan_type = input('【Select scan type 1.Platform or 2.Store: ')
+        scan_type = input('【Available operate type \n1.Platform\n2.Store\n3.Auto Review\nSelect operate type:')
 
         if scan_type == '1':  # Scan platform
             logger.info('【Scan platform Start')
@@ -666,3 +706,5 @@ if __name__ == '__main__':
             summary_store_excel_file_path = get_save_path(f"SUMMARY_STORE_{store_name}.xlsx")
             logger.info(f'【Save {store_name} STORE SUMMARY results, path: {summary_store_excel_file_path}')
             save_excel(merge_results, summary_store_excel_file_path)
+        elif scan_type == '3':  # Scan Store
+            auto_review()
