@@ -278,28 +278,34 @@ def scan_platform(idx: int, search_keywords: str, must_include_word: str, max_sc
 
 
 def retrieve_store_url(eleView: XMLElement):
-    eleView.click()
-    time.sleep(0.5)
-    logger.info("wait for '分享' button appear.")
-    d.xpath("//*[@content-desc='分享']").wait()
-    logger.info("click '分享' button.")
-    d.xpath("//*[@content-desc='分享']").click_exists()
-    time.sleep(0.5)
+    try:
+        eleView.click()
+        time.sleep(1.5)
+        logger.info("wait for '分享' button appear.")
+        d.xpath("//*[@content-desc='分享']").wait()
+        logger.info("click '分享' button.")
+        d.xpath("//*[@content-desc='分享']").click_exists()
+        time.sleep(1.5)
 
-    logger.info("wait for '复制链接' button appear.")
-    d.xpath("//*[@content-desc='复制链接']").wait()
-    logger.info("click '复制链接' button.")
-    d.xpath("//*[@content-desc='复制链接']").click_exists()
-    time.sleep(0.5)
+        logger.info("wait for '复制链接' button appear.")
+        d.xpath("//*[@content-desc='复制链接']").wait()
+        logger.info("click '复制链接' button.")
+        d.xpath("//*[@content-desc='复制链接']").click_exists()
+        time.sleep(1.5)
 
-    url = extract_url_from_text(d.xpath("//*[starts-with(@content-desc, '【闲鱼】')]").attrib['content-desc'])
-    d.press("back")
-    time.sleep(0.5)
-    d.xpath("//*[starts-with(@content-desc, '【闲鱼】')]").wait_gone()
-    d.press("back")
-    time.sleep(0.5)
-    d.xpath('//*[@content-desc="管理"]').wait_gone()
-    return url
+        url = extract_url_from_text(d.xpath("//*[starts-with(@content-desc, '【闲鱼】')]").attrib['content-desc'])
+        d.press("back")
+        time.sleep(1.5)
+        d.xpath("//*[starts-with(@content-desc, '【闲鱼】')]").wait_gone()
+        d.press("back")
+        time.sleep(1.5)
+        d.xpath('//*[@content-desc="管理"]').wait_gone()
+        return url
+    except Exception as e:
+        logger.error(e)
+        traceback.print_exc()
+    finally:
+        return None
 
 
 def extract_url_from_text(text):
@@ -327,12 +333,6 @@ def scan_store(store_name: str, must_include_word: str, max_scroll_page: int, sc
                         product_url = retrieve_store_url(el)
                         soldprice = get_store_price(title)
                         wants = get_wants(title)
-                        # if details:
-                        #     product_url = details["product_url"]
-                        #     soldprice = details["soldprice"]
-                        #     wants = details["wants"]
-                        #     likes = details["likes"]
-                        #     views = details["views"]
                         product = {"title": title, "product_url": product_url, "soldprice": soldprice, "wants": wants, "likes": 0, "views": 0}
                         store_results.append(product)
                         logger.info(f"【{len(store_results)+1}】- {product}")
@@ -349,6 +349,7 @@ def scan_store(store_name: str, must_include_word: str, max_scroll_page: int, sc
     finally:
         main_complete()
         logger.info("Execution Completed!")
+        return store_results
 
 
 def load_store_results(store_name: str, store_homepage: str, store_must_include_word: str, store_max_scroll_page: int, store_scroll_page_timeout: float) -> list:
@@ -364,11 +365,13 @@ def load_store_results(store_name: str, store_homepage: str, store_must_include_
         for sr in store_results:
             # {"product_url": product_url, "soldprice": soldprice, "wants": wants, "likes": likes, "views": views}
             product_url = sr["product_url"]
-            details = parse_html_page(product_url)
-            sr["soldprice"] = details["soldprice"]
-            sr["wants"] = details["wants"]
-            sr["likes"] = details["likes"]
-            sr["views"] = details["views"]
+            if product_url:
+                details = parse_html_page(product_url)
+                if details:
+                    sr["soldprice"] = details["soldprice"]
+                    sr["wants"] = details["wants"]
+                    sr["likes"] = details["likes"]
+                    sr["views"] = details["views"]
         store_sorted_results = sorted(store_results, key=lambda x: x['wants'], reverse=True)
         save_excel(store_sorted_results, store_excel_file_path)
 
@@ -581,43 +584,50 @@ def get_device_details(device_sn):
 
 
 def auto_review():
-    d.app_start(package_name, activity_name, wait=True)
-    d(resourceId="com.taobao.idlefish:id/tab_title", text="我的").wait()
-    d(resourceId="com.taobao.idlefish:id/tab_title", text="我的").click()
-    time.sleep(1)
-    d(descriptionContains="我卖出的").click()
-    time.sleep(1)
-    d(description="待评价\n第 5 个标签，共 6 个").click()
-    time.sleep(3)
-    while True:
-        time.sleep(2)
-        view_list = d.xpath('//android.view.View').all()
-        if len(view_list) > 0:
-            for el in view_list:
-                if '交易成功' in str(el.attrib['content-desc']):
-                    (left_top_x, left_top_y, width, height) = el.rect
-                    x = left_top_x+(920-0)
-                    y = left_top_y+(728-343)
-                    # click '去评价'
-                    d.click(x, y)
-                    time.sleep(1)
-                    d.xpath('//*[@content-desc="赏好评"]').wait()
-                    d.xpath('//*[@content-desc="赏好评"]').click_exists()
-                    time.sleep(1)
-                    comment = "非常棒的顾客，下单迅速，确认及时，沟通顺畅，态度超赞，五星好评，期待再次光临！！！"
-                    # todo: try to find a better way
-                    d.xpath('//*[@resource-id="android:id/content"]/android.widget.FrameLayout//android.widget.FrameLayout///android.widget.FrameLayout//android.widget.FrameLayout//android.view.View//android.view.View//android.view.View//android.view.View//android.view.View//android.view.View//android.view.View//android.view.View[4]').set_text(comment)
-                    time.sleep(1)
-                    d(description="发布").wait()
-                    d(description="发布").click_exists()
-                    time.sleep(2)
-                    d(description="评价详情").wait()
-                    d.press("back")
-                    time.sleep(1)
-                    d(description="评价详情").wait_gone()
-        else:
-            break
-    print('done')
+    try:
+        d.app_start(package_name, activity_name, wait=True)
+        d(resourceId="com.taobao.idlefish:id/tab_title", text="我的").wait()
+        d(resourceId="com.taobao.idlefish:id/tab_title", text="我的").click()
+        time.sleep(1)
+        d(descriptionContains="我卖出的").click()
+        time.sleep(1)
+        d(description="待评价\n第 5 个标签，共 6 个").click()
+        time.sleep(3)
+        while True:
+            time.sleep(2)
+            view_list = d.xpath('//android.view.View').all()
+            if len(view_list) > 0:
+                filtered_view_list = [el for el in view_list if '交易成功' in str(el.attrib['content-desc'])]
+                if len(filtered_view_list) <= 0:
+                    break
+                el = filtered_view_list[0]
+                (left_top_x, left_top_y, width, height) = el.rect
+                x = left_top_x+(920-0)
+                y = left_top_y+(728-343)
+                # click '去评价'
+                d.click(x, y)
+                time.sleep(1)
+                d.xpath('//*[@content-desc="赏好评"]').wait()
+                d.xpath('//*[@content-desc="赏好评"]').click_exists()
+                time.sleep(1)
+                comment = "非常棒的顾客，下单迅速，确认及时，沟通顺畅，态度超赞，五星好评，期待再次光临！！！"
+                # todo: try to find a better way
+                d.xpath('//*[@resource-id="android:id/content"]/android.widget.FrameLayout/android.widget.FrameLayout/android.widget.FrameLayout/android.widget.FrameLayout/android.view.View/android.view.View/android.view.View/android.view.View/android.view.View/android.view.View/android.view.View/android.view.View[4]').set_text(comment)
+                time.sleep(1)
+                d(description="发布").wait()
+                d(description="发布").click_exists()
+                time.sleep(2)
+                d(description="评价详情").wait()
+                d.press("back")
+                time.sleep(1)
+                d(description="评价详情").wait_gone()
+            else:
+                break
+    except Exception:
+        traceback.print_exc()
+    finally:
+        d.set_fastinput_ime(False)
+        print('Auto review complete!')
 
 
 if __name__ == '__main__':
